@@ -112,10 +112,10 @@ func (m *movie) GetMovies(sortBy string, order string, limit, offset int) ([]*mo
 		"DESC": {},
 	}
 	if _, ok := validSortColumns[sortBy]; !ok {
-		return nil, fmt.Errorf("invalid sort column: %s", sortBy)
+		sortBy = "rating"
 	}
 	if _, ok := validOrder[order]; !ok {
-		return nil, fmt.Errorf("invalid order: %s", order)
+		order = "DESC"
 	}
 	query := fmt.Sprintf(`SELECT id, title, description, release_date, rating 
 	FROM movies 

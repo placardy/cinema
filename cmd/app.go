@@ -34,7 +34,7 @@ func Run() error {
 	// for _, movie := range movies {
 	// 	fmt.Println(movie.Title)
 	// }
-	movies, err := movieRepo.GetMovies("rating", "DESC", 4, 2)
+	movies, err := movieRepo.GetMovies("ratidgfdgng", "DESC", 4, 2)
 	if err != nil {
 		fmt.Println(err)
 	}
