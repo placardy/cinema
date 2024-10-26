@@ -20,18 +20,29 @@ func Run() error {
 	actorRepo := repository.NewActor(db)
 
 	// добавить актера
-	actorID, _ := actorRepo.CreateActor("TestActor", "male", "1970-05-05")
-	// добавить фильм
-	movieID, _ := movieRepo.CreateMovie("TestMovie", "testdisc", "2024-05-05", 5)
+	// birthDate := time.Date(1990, 1, 1, 0, 0, 0, 0, time.UTC)
+	// actorID, _ := actorRepo.AddActor(models.CreateActor{"TestActor", "male", birthDate})
+	// // добавить фильм
+	// release := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
+	// movieID, _ := movieRepo.AddMovie(models.CreateMovie{"TestMovie", "testdisc", release, 5})
+
 	// добавить связь актер-фильм
-	movieRepo.CreateMovieActorRelation(actorID, movieID)
+	// movieRepo.AddActorToMovieRelation(actorID, movieID)
 
 	// Поиск фильмов по имени актера
-	movies, _ := movieRepo.SearchMoviesByActorName("ar")
-	for _, movie := range movies {
-		fmt.Println(movie.Title)
+	// movies, _ := movieRepo.SearchMoviesByActorName("ar")
+	// for _, movie := range movies {
+	// 	fmt.Println(movie.Title)
+	// }
+	movies, _ := movieRepo.GetAllMovies(5, 2)
+	for _, actor := range movies {
+		fmt.Println("movie:", actor.Title)
 	}
-
+	actors, _ := actorRepo.GetAllActors(4, 5)
+	fmt.Println(actors)
+	for _, actor := range actors {
+		fmt.Println("actor:", actor.Name)
+	}
 	return nil
 }
 
