@@ -34,12 +34,15 @@ func Run() error {
 	// for _, movie := range movies {
 	// 	fmt.Println(movie.Title)
 	// }
-	movies, _ := movieRepo.GetAllMovies(5, 2)
-	for _, actor := range movies {
-		fmt.Println("movie:", actor.Title)
+	movies, err := movieRepo.GetMovies("rating", "DESC", 4, 2)
+	if err != nil {
+		fmt.Println(err)
 	}
+	for _, movie := range movies {
+		fmt.Println("movie:", movie.Title, "rating:", movie.Rating)
+	}
+
 	actors, _ := actorRepo.GetAllActors(4, 5)
-	fmt.Println(actors)
 	for _, actor := range actors {
 		fmt.Println("actor:", actor.Name)
 	}

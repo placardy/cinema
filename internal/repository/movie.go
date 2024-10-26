@@ -101,15 +101,34 @@ func (m *movie) GetMoviesByActorID(actorID uuid.UUID, limit, offset int) ([]*mod
 
 // Получить фильмы с фильтрацией
 func (m *movie) GetMovies(sortBy string, order string, limit, offset int) ([]*models.Movie, error) {
-	var movies []*models.Movie
-	query := `SELECT id, title, description, release_date, rating FROM movies ORDER BY $1 $2 LIMIT $3 OFFSET $4`
+	//валидация
+	validSortColumns := map[string]struct{}{
+		"title":        {},
+		"release_date": {},
+		"rating":       {},
+	}
+	validOrder := map[string]struct{}{
+		"ASC":  {},
+		"DESC": {},
+	}
+	if _, ok := validSortColumns[sortBy]; !ok {
+		return nil, fmt.Errorf("invalid sort column: %s", sortBy)
+	}
+	if _, ok := validOrder[order]; !ok {
+		return nil, fmt.Errorf("invalid order: %s", order)
+	}
+	query := fmt.Sprintf(`SELECT id, title, description, release_date, rating 
+	FROM movies 
+	ORDER BY %s %s 
+	LIMIT $1 OFFSET $2`, sortBy, order)
 
-	rows, err := m.db.Query(query, sortBy, order, limit, offset)
+	rows, err := m.db.Query(query, limit, offset)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
+	var movies []*models.Movie
 	for rows.Next() {
 		var movie models.Movie
 		err := rows.Scan(&movie.ID, &movie.Title, &movie.Description, &movie.ReleaseDate, &movie.Rating)
