@@ -4,6 +4,7 @@ import (
 	"cinema/internal/models"
 	"database/sql"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -93,6 +94,104 @@ func (a *actor) GetAllActors(limit, offset int) ([]*models.Actor, error) {
 	// Проверяем наличие ошибок при итерации по строкам
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("error occurred while iterating rows: %w", err)
+	}
+
+	return actors, nil
+}
+
+// Получить актеров с фильмами с пагинацией
+func (r *actor) GetActorsWithMovies(limit, offset int) ([]models.Actor, error) {
+	query := `
+    WITH paginated_actors AS (
+        SELECT 
+            a.id AS actor_id,
+            a.name AS actor_name,
+            a.gender AS actor_gender,
+            a.date_of_birth AS actor_birth_date
+        FROM 
+            actors a
+        ORDER BY 
+            a.name
+        LIMIT $1 OFFSET $2
+    )
+    SELECT 
+        pa.actor_id,
+        pa.actor_name,
+        pa.actor_gender,
+        pa.actor_birth_date,
+        m.id AS movie_id,
+        m.title AS movie_title,
+        m.description AS movie_description,
+        m.release_date AS movie_release_date,
+        m.rating AS movie_rating
+    FROM 
+        paginated_actors pa
+    LEFT JOIN 
+        movie_actors ma ON pa.actor_id = ma.actor_id
+    LEFT JOIN 
+        movies m ON ma.movie_id = m.id;`
+
+	rows, err := r.db.Query(query, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var actorsMap = make(map[uuid.UUID]*models.Actor)
+
+	for rows.Next() {
+		var (
+			actorID        uuid.UUID
+			actorName      string
+			actorGender    string
+			actorBirthDate time.Time
+			movieID        *uuid.UUID
+			movieTitle     *string
+			movieDesc      *string
+			movieRelease   *time.Time
+			movieRating    *float64
+		)
+
+		if err := rows.Scan(
+			&actorID,
+			&actorName,
+			&actorGender,
+			&actorBirthDate,
+			&movieID,
+			&movieTitle,
+			&movieDesc,
+			&movieRelease,
+			&movieRating,
+		); err != nil {
+			return nil, err
+		}
+
+		// Создаем нового актера, если его еще нет в мапе
+		if _, exists := actorsMap[actorID]; !exists {
+			actorsMap[actorID] = &models.Actor{
+				ID:          actorID,
+				Name:        actorName,
+				Gender:      actorGender,
+				DateOfBirth: actorBirthDate,
+				Movies:      []models.Movie{},
+			}
+		}
+
+		// Добавляем фильм только если он существует
+		if movieID != nil {
+			actorsMap[actorID].Movies = append(actorsMap[actorID].Movies, models.Movie{
+				ID:          *movieID,
+				Title:       *movieTitle,
+				Description: *movieDesc,
+				ReleaseDate: *movieRelease,
+				Rating:      *movieRating,
+			})
+		}
+	}
+
+	var actors []models.Actor
+	for _, actor := range actorsMap {
+		actors = append(actors, *actor)
 	}
 
 	return actors, nil

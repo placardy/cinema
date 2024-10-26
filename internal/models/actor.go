@@ -11,6 +11,7 @@ type Actor struct {
 	Name        string    `json:"name"`
 	Gender      string    `json:"gender"`
 	DateOfBirth time.Time `json:"date_of_birth"`
+	Movies      []Movie   `json:"movies"`
 }
 
 type CreateActor struct {

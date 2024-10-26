@@ -22,6 +22,7 @@ func Run() error {
 	// добавить актера
 	// birthDate := time.Date(1990, 1, 1, 0, 0, 0, 0, time.UTC)
 	// actorID, _ := actorRepo.AddActor(models.CreateActor{"TestActor", "male", birthDate})
+
 	// // добавить фильм
 	// release := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
 	// movieID, _ := movieRepo.AddMovie(models.CreateMovie{"TestMovie", "testdisc", release, 5})
@@ -34,6 +35,8 @@ func Run() error {
 	// for _, movie := range movies {
 	// 	fmt.Println(movie.Title)
 	// }
+
+	// Поиск фильмов по названию
 	movies, err := movieRepo.GetMovies("ratidgfdgng", "DESC", 4, 2)
 	if err != nil {
 		fmt.Println(err)
@@ -42,9 +45,13 @@ func Run() error {
 		fmt.Println("movie:", movie.Title, "rating:", movie.Rating)
 	}
 
-	actors, _ := actorRepo.GetAllActors(4, 5)
+	// Получить актеров и фильмы
+	actors, err := actorRepo.GetActorsWithMovies(3, 1)
+	if err != nil {
+		fmt.Println(err)
+	}
 	for _, actor := range actors {
-		fmt.Println("actor:", actor.Name)
+		fmt.Println("actor:", actor.Name, "movies:", actor.Movies)
 	}
 	return nil
 }
