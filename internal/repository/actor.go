@@ -102,34 +102,37 @@ func (a *actor) GetAllActors(limit, offset int) ([]*models.Actor, error) {
 // Получить актеров с фильмами с пагинацией
 func (r *actor) GetActorsWithMovies(limit, offset int) ([]models.Actor, error) {
 	query := `
-    WITH paginated_actors AS (
-        SELECT 
-            a.id AS actor_id,
-            a.name AS actor_name,
-            a.gender AS actor_gender,
-            a.date_of_birth AS actor_birth_date
-        FROM 
-            actors a
-        ORDER BY 
-            a.name
-        LIMIT $1 OFFSET $2
-    )
-    SELECT 
-        pa.actor_id,
-        pa.actor_name,
-        pa.actor_gender,
-        pa.actor_birth_date,
-        m.id AS movie_id,
-        m.title AS movie_title,
-        m.description AS movie_description,
-        m.release_date AS movie_release_date,
-        m.rating AS movie_rating
-    FROM 
-        paginated_actors pa
-    LEFT JOIN 
-        movie_actors ma ON pa.actor_id = ma.actor_id
-    LEFT JOIN 
-        movies m ON ma.movie_id = m.id;`
+		WITH paginated_actors AS (
+			SELECT 
+				a.id AS actor_id,
+				a.name AS actor_name,
+				a.gender AS actor_gender,
+				a.date_of_birth AS actor_birth_date
+			FROM 
+				actors a
+			ORDER BY 
+				a.name ASC  -- Сортируем по имени в алфавитном порядке
+			LIMIT $1 OFFSET $2
+		)
+		SELECT 
+			pa.actor_id,
+			pa.actor_name,
+			pa.actor_gender,
+			pa.actor_birth_date,
+			m.id AS movie_id,
+			m.title AS movie_title,
+			m.description AS movie_description,
+			m.release_date AS movie_release_date,
+			m.rating AS movie_rating
+		FROM 
+			paginated_actors pa
+		LEFT JOIN 
+			movie_actors ma ON pa.actor_id = ma.actor_id
+		LEFT JOIN 
+			movies m ON ma.movie_id = m.id
+		ORDER BY 
+			pa.actor_name ASC,
+			pa.actor_id;`
 
 	rows, err := r.db.Query(query, limit, offset)
 	if err != nil {
@@ -137,7 +140,11 @@ func (r *actor) GetActorsWithMovies(limit, offset int) ([]models.Actor, error) {
 	}
 	defer rows.Close()
 
-	var actorsMap = make(map[uuid.UUID]*models.Actor)
+	// Срез для хранения актеров в порядке их получения
+	var actors []models.Actor
+
+	// Создаем мапу для отслеживания добавленных актеров
+	actorsMap := make(map[uuid.UUID]*models.Actor)
 
 	for rows.Next() {
 		var (
@@ -166,32 +173,41 @@ func (r *actor) GetActorsWithMovies(limit, offset int) ([]models.Actor, error) {
 			return nil, err
 		}
 
-		// Создаем нового актера, если его еще нет в мапе
-		if _, exists := actorsMap[actorID]; !exists {
-			actorsMap[actorID] = &models.Actor{
+		// Проверяем, существует ли актер в мапе
+		if actor, exists := actorsMap[actorID]; exists {
+			// Добавляем фильм к существующему актеру
+			if movieID != nil {
+				actor.Movies = append(actor.Movies, models.Movie{
+					ID:          *movieID,
+					Title:       *movieTitle,
+					Description: *movieDesc,
+					ReleaseDate: *movieRelease,
+					Rating:      *movieRating,
+				})
+			}
+		} else {
+			// Создаем нового актера и добавляем его в срез
+			newActor := &models.Actor{
 				ID:          actorID,
 				Name:        actorName,
 				Gender:      actorGender,
 				DateOfBirth: actorBirthDate,
 				Movies:      []models.Movie{},
 			}
+			// Добавляем фильм только если он существует
+			if movieID != nil {
+				newActor.Movies = append(newActor.Movies, models.Movie{
+					ID:          *movieID,
+					Title:       *movieTitle,
+					Description: *movieDesc,
+					ReleaseDate: *movieRelease,
+					Rating:      *movieRating,
+				})
+			}
+			// Сохраняем актера в мапе и срезе
+			actorsMap[actorID] = newActor
+			actors = append(actors, *newActor)
 		}
-
-		// Добавляем фильм только если он существует
-		if movieID != nil {
-			actorsMap[actorID].Movies = append(actorsMap[actorID].Movies, models.Movie{
-				ID:          *movieID,
-				Title:       *movieTitle,
-				Description: *movieDesc,
-				ReleaseDate: *movieRelease,
-				Rating:      *movieRating,
-			})
-		}
-	}
-
-	var actors []models.Actor
-	for _, actor := range actorsMap {
-		actors = append(actors, *actor)
 	}
 
 	return actors, nil

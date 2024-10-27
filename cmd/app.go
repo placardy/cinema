@@ -46,12 +46,12 @@ func Run() error {
 	}
 
 	// Получить актеров и фильмы
-	actors, err := actorRepo.GetActorsWithMovies(3, 1)
+	actors, err := actorRepo.GetActorsWithMovies(7, 1)
 	if err != nil {
 		fmt.Println(err)
 	}
 	for _, actor := range actors {
-		fmt.Println("actor:", actor.Name, "movies:", actor.Movies)
+		fmt.Println("actor:", actor.Name, "id", actor.ID)
 	}
 	return nil
 }
