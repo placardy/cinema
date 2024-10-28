@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"time"
 
+	sq "github.com/Masterminds/squirrel"
 	"github.com/google/uuid"
+	_ "github.com/lib/pq"
 )
 
 type actor struct {
@@ -20,11 +22,19 @@ func NewActor(db *sql.DB) *actor {
 // Добавить актера
 func (a *actor) AddActor(actor models.CreateActor) (uuid.UUID, error) {
 	id := uuid.New()
-	query := `
-        INSERT INTO actors (id, name, gender, date_of_birth)
-        VALUES ($1, $2, $3, $4) RETURNING id`
+	query := sq.
+		Insert("actors").
+		Columns("id", "name", "gender", "date_of_birth").
+		Values(id, actor.Name, actor.Gender, actor.DateOfBirth).
+		Suffix("RETURNING \"id\"").
+		PlaceholderFormat(sq.Dollar)
 
-	err := a.db.QueryRow(query, id, actor.Name, actor.Gender, actor.DateOfBirth).Scan(&id)
+	sqlQuery, args, err := query.ToSql()
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("failed to build query: %w", err)
+	}
+
+	err = a.db.QueryRow(sqlQuery, args...).Scan(&id)
 	if err != nil {
 		return uuid.Nil, fmt.Errorf("failed to add actor: %w", err)
 	}
@@ -33,9 +43,19 @@ func (a *actor) AddActor(actor models.CreateActor) (uuid.UUID, error) {
 
 // Получить актера по id
 func (a *actor) GetActor(id uuid.UUID) (*models.Actor, error) {
-	query := `SELECT id, name, gender, date_of_birth FROM actors WHERE id = $1`
+	query := sq.
+		Select("id", "name", "gender", "date_of_birth").
+		From("actors").
+		Where(sq.Eq{"id": id}).
+		PlaceholderFormat(sq.Dollar)
+
+	sqlQuery, args, err := query.ToSql()
+	if err != nil {
+		return nil, fmt.Errorf("failed to build query: %w", err)
+	}
+
 	var actor models.Actor
-	err := a.db.QueryRow(query, id).Scan(&actor.ID, &actor.Name, &actor.Gender, &actor.DateOfBirth)
+	err = a.db.QueryRow(sqlQuery, args...).Scan(&actor.ID, &actor.Name, &actor.Gender, &actor.DateOfBirth)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil // Актёр не найден
@@ -47,14 +67,20 @@ func (a *actor) GetActor(id uuid.UUID) (*models.Actor, error) {
 
 // Обновить актера
 func (a *actor) UpdateActor(id uuid.UUID, actor models.UpdateActor) error {
-	query := `
-        UPDATE actors SET
-            name = COALESCE($1, name),
-            gender = COALESCE($2, gender),
-            date_of_birth = COALESCE($3, date_of_birth)
-        WHERE id = $4`
+	query := sq.
+		Update("actors").
+		Set("name", sq.Expr("COALESCE(?, name)", actor.Name)).
+		Set("gender", sq.Expr("COALESCE(?, gender)", actor.Gender)).
+		Set("date_of_birth", sq.Expr("COALESCE(?, date_of_birth)", actor.DateOfBirth)).
+		Where(sq.Eq{"id": id}).
+		PlaceholderFormat(sq.Dollar)
 
-	_, err := a.db.Exec(query, actor.Name, actor.Gender, actor.DateOfBirth, id)
+	sqlQuery, args, err := query.ToSql()
+	if err != nil {
+		return fmt.Errorf("failed to build query: %w", err)
+	}
+
+	_, err = a.db.Exec(sqlQuery, args...)
 	if err != nil {
 		return fmt.Errorf("failed to update actor: %w", err)
 	}
@@ -63,8 +89,17 @@ func (a *actor) UpdateActor(id uuid.UUID, actor models.UpdateActor) error {
 
 // Удалить актера
 func (a *actor) DeleteActor(id uuid.UUID) error {
-	query := `DELETE FROM actors WHERE id = $1`
-	_, err := a.db.Exec(query, id)
+	query := sq.
+		Delete("actors").
+		Where(sq.Eq{"id": id}).
+		PlaceholderFormat(sq.Dollar)
+
+	sqlQuery, args, err := query.ToSql()
+	if err != nil {
+		return fmt.Errorf("failed to build query: %w", err)
+	}
+
+	_, err = a.db.Exec(sqlQuery, args...)
 	if err != nil {
 		return fmt.Errorf("failed to delete actor: %w", err)
 	}
@@ -73,15 +108,25 @@ func (a *actor) DeleteActor(id uuid.UUID) error {
 
 // Получить всех актеров
 func (a *actor) GetAllActors(limit, offset int) ([]*models.Actor, error) {
-	var actors []*models.Actor
-	query := `SELECT id, name, gender, date_of_birth FROM actors LIMIT $1 OFFSET $2`
+	query := sq.
+		Select("id", "name", "gender", "date_of_birth").
+		From("actors").
+		Limit(uint64(limit)).
+		Offset(uint64(offset)).
+		PlaceholderFormat(sq.Dollar)
 
-	rows, err := a.db.Query(query, limit, offset) // Передаем limit и offset
+	sqlQuery, args, err := query.ToSql()
+	if err != nil {
+		return nil, fmt.Errorf("failed to build query: %w", err)
+	}
+
+	rows, err := a.db.Query(sqlQuery, args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get actors: %w", err)
 	}
 	defer rows.Close()
 
+	var actors []*models.Actor
 	for rows.Next() {
 		var actor models.Actor
 		err := rows.Scan(&actor.ID, &actor.Name, &actor.Gender, &actor.DateOfBirth)
@@ -100,41 +145,31 @@ func (a *actor) GetAllActors(limit, offset int) ([]*models.Actor, error) {
 }
 
 // Получить актеров с фильмами с пагинацией
-func (r *actor) GetActorsWithMovies(limit, offset int) ([]models.Actor, error) {
-	query := `
-		WITH paginated_actors AS (
-			SELECT 
-				a.id AS actor_id,
-				a.name AS actor_name,
-				a.gender AS actor_gender,
-				a.date_of_birth AS actor_birth_date
-			FROM 
-				actors a
-			ORDER BY 
-				a.name ASC  -- Сортируем по имени в алфавитном порядке
-			LIMIT $1 OFFSET $2
-		)
-		SELECT 
-			pa.actor_id,
-			pa.actor_name,
-			pa.actor_gender,
-			pa.actor_birth_date,
-			m.id AS movie_id,
-			m.title AS movie_title,
-			m.description AS movie_description,
-			m.release_date AS movie_release_date,
-			m.rating AS movie_rating
-		FROM 
-			paginated_actors pa
-		LEFT JOIN 
-			movie_actors ma ON pa.actor_id = ma.actor_id
-		LEFT JOIN 
-			movies m ON ma.movie_id = m.id
-		ORDER BY 
-			pa.actor_name ASC,
-			pa.actor_id;`
+func (a *actor) GetActorsWithMovies(limit, offset int) ([]models.Actor, error) {
+	// Создаем подзапрос для пагинации актеров
+	actorsQuery := sq.
+		Select("id AS actor_id", "name AS actor_name", "gender AS actor_gender", "date_of_birth AS actor_birth_date").
+		From("actors").
+		OrderBy("name ASC").
+		Limit(uint64(limit)).
+		Offset(uint64(offset))
 
-	rows, err := r.db.Query(query, limit, offset)
+	// Основной запрос с соединением фильмов
+	query := sq.
+		Select("pa.actor_id", "pa.actor_name", "pa.actor_gender", "pa.actor_birth_date", "m.id AS movie_id",
+			"m.title AS movie_title", "m.description AS movie_description", "m.release_date AS movie_release_date", "m.rating AS movie_rating").
+		FromSelect(actorsQuery, "pa").
+		LeftJoin("movie_actors ma ON pa.actor_id = ma.actor_id").
+		LeftJoin("movies m ON ma.movie_id = m.id").
+		OrderBy("pa.actor_name ASC", "pa.actor_id").
+		PlaceholderFormat(sq.Dollar)
+
+	sqlQuery, args, err := query.ToSql()
+	if err != nil {
+		return nil, fmt.Errorf("failed to build query: %w", err)
+	}
+
+	rows, err := a.db.Query(sqlQuery, args...)
 	if err != nil {
 		return nil, err
 	}

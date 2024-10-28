@@ -4,9 +4,11 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/google/uuid"
-
 	"cinema/internal/models"
+
+	sq "github.com/Masterminds/squirrel"
+	"github.com/google/uuid"
+	_ "github.com/lib/pq"
 )
 
 type movie struct {
@@ -20,25 +22,43 @@ func NewMovie(db *sql.DB) *movie {
 // Добавить фильм
 func (m *movie) AddMovie(movie models.CreateMovie) (uuid.UUID, error) {
 	id := uuid.New()
-	query := `
-        INSERT INTO movies (id, title, description, release_date, rating)
-        VALUES ($1, $2, $3, $4, $5) RETURNING id`
 
-	err := m.db.QueryRow(query, id, movie.Title, movie.Description, movie.ReleaseDate, movie.Rating).Scan(&id)
+	query := sq.
+		Insert("movies").
+		Columns("id", "title", "description", "release_date", "rating").
+		Values(id, movie.Title, movie.Description, movie.ReleaseDate, movie.Rating).
+		Suffix("RETURNING \"id\"").
+		PlaceholderFormat(sq.Dollar)
+
+	sqlQuery, args, err := query.ToSql()
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("failed to build query: %w", err)
+	}
+
+	// Выполняем запрос и сканируем результат
+	err = m.db.QueryRow(sqlQuery, args...).Scan(&id)
 	if err != nil {
 		return uuid.Nil, fmt.Errorf("failed to add movie: %w", err)
 	}
+
 	return id, nil
 }
 
 // Создание связи между фильмом и актером
-func (m *movie) AddActorToMovieRelation(actorID, movieID uuid.UUID) error {
-	query := `
-        INSERT INTO actor_movies (actor_id, movie_id)
-        VALUES ($1, $2)
-        ON CONFLICT DO NOTHING` // избегание дубликата
+func (m *movie) AddMovieActorRelation(actorID, movieID uuid.UUID) error {
+	query := sq.
+		Insert("actor_movies").
+		Columns("actor_id", "movie_id").
+		Values(actorID, movieID).
+		Suffix("ON CONFLICT DO NOTHING").
+		PlaceholderFormat(sq.Dollar)
 
-	_, err := m.db.Exec(query, actorID, movieID)
+	sqlQuery, args, err := query.ToSql()
+	if err != nil {
+		return fmt.Errorf("failed to build query: %w", err)
+	}
+
+	_, err = m.db.Exec(sqlQuery, args...)
 	if err != nil {
 		return fmt.Errorf("failed to add actor to movie: %w", err)
 	}
@@ -46,12 +66,17 @@ func (m *movie) AddActorToMovieRelation(actorID, movieID uuid.UUID) error {
 }
 
 // Удаление связи между фильмом и актером
-func (m *movie) RemoveActorFromMovieRelation(actorID, movieID uuid.UUID) error {
-	query := `
-        DELETE FROM actor_movies 
-        WHERE actor_id = $1 AND movie_id = $2`
+func (m *movie) RemoveMovieActorRelation(actorID, movieID uuid.UUID) error {
+	query := sq.
+		Delete("actor_movies").
+		Where(sq.Eq{"actor_id": actorID, "movie_id": movieID}).
+		PlaceholderFormat(sq.Dollar)
 
-	_, err := m.db.Exec(query, actorID, movieID)
+	sqlQuery, args, err := query.ToSql()
+	if err != nil {
+		return fmt.Errorf("failed to build query: %w", err)
+	}
+	_, err = m.db.Exec(sqlQuery, args...)
 	if err != nil {
 		return fmt.Errorf("failed to remove actor from movie: %w", err)
 	}
@@ -60,12 +85,18 @@ func (m *movie) RemoveActorFromMovieRelation(actorID, movieID uuid.UUID) error {
 
 // Получить фильм по id
 func (m *movie) GetMovie(id uuid.UUID) (*models.Movie, error) {
-	query := `
-		SELECT id, title, description, release_date, rating 
-		FROM movies 
-		WHERE id = $1`
+	query := sq.
+		Select("id", "title", "description", "release_date", "rating").
+		From("movies").
+		Where(sq.Eq{"id": id}).
+		PlaceholderFormat(sq.Dollar)
+
+	sqlQuery, args, err := query.ToSql()
+	if err != nil {
+		return nil, fmt.Errorf("failed to build query: %w", err)
+	}
 	var movie models.Movie
-	err := m.db.QueryRow(query, id).Scan(&movie.ID, &movie.Title, &movie.Description, &movie.ReleaseDate, &movie.Rating)
+	err = m.db.QueryRow(sqlQuery, args...).Scan(&movie.ID, &movie.Title, &movie.Description, &movie.ReleaseDate, &movie.Rating)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil // Movie not found
@@ -77,15 +108,23 @@ func (m *movie) GetMovie(id uuid.UUID) (*models.Movie, error) {
 
 // Получить фильмы по actor id
 func (m *movie) GetMoviesByActorID(actorID uuid.UUID, limit, offset int) ([]*models.Movie, error) {
-	query := `
-		SELECT m.id, m.title, m.description, m.release_date, m.rating
-		FROM movies m
-		JOIN movie_actors ma ON m.id = ma.movie_id
-		WHERE ma.actor_id = $1 
-		LIMIT $2 OFFSET $3`
-	rows, err := m.db.Query(query, actorID)
+	query := sq.
+		Select("m.id", "m.title", "m.description", "m.release_date", "m.rating").
+		From("movies m").
+		Join("movie_actors ma ON m.id = ma.movie_id").
+		Where(sq.Eq{"ma.actor_id": actorID}).
+		Limit(uint64(limit)).
+		Offset(uint64(offset)).
+		PlaceholderFormat(sq.Dollar)
+
+	sqlQuery, args, err := query.ToSql()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to build query: %w", err)
+	}
+
+	rows, err := m.db.Query(sqlQuery, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get movie by actorID: %w", err)
 	}
 	defer rows.Close()
 	var movies []*models.Movie
@@ -117,14 +156,22 @@ func (m *movie) GetMovies(sortBy string, order string, limit, offset int) ([]*mo
 	if _, ok := validOrder[order]; !ok {
 		order = "DESC"
 	}
-	query := fmt.Sprintf(`SELECT id, title, description, release_date, rating 
-	FROM movies 
-	ORDER BY %s %s 
-	LIMIT $1 OFFSET $2`, sortBy, order)
+	query := sq.
+		Select("id", "title", "description", "release_date", "rating").
+		From("movies").
+		OrderBy(fmt.Sprintf("%s %s", sortBy, order)).
+		Limit(uint64(limit)).
+		Offset(uint64(offset)).
+		PlaceholderFormat(sq.Dollar)
 
-	rows, err := m.db.Query(query, limit, offset)
+	sqlQuery, args, err := query.ToSql()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to build query: %w", err)
+	}
+
+	rows, err := m.db.Query(sqlQuery, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get movies with filtration: %w", err)
 	}
 	defer rows.Close()
 
@@ -143,15 +190,22 @@ func (m *movie) GetMovies(sortBy string, order string, limit, offset int) ([]*mo
 // Поиск фильмов по названию
 func (m *movie) SearchMoviesByTitle(titleFragment string, limit, offset int) ([]*models.Movie, error) {
 	var movies []*models.Movie
-	query := `
-		SELECT id, title, description, release_date, rating 
-		FROM movies 
-		WHERE title ILIKE '%' || $1 || '%'
-		LIMIT $2 OFFSET $3`
+	query := sq.
+		Select("id", "title", "description", "release_date", "rating").
+		From("movies").
+		Where(sq.Like{"title": fmt.Sprintf("%%%s%%", titleFragment)}).
+		Limit(uint64(limit)).
+		Offset(uint64(offset)).
+		PlaceholderFormat(sq.Dollar)
 
-	rows, err := m.db.Query(query, titleFragment, limit, offset)
+	sqlQuery, args, err := query.ToSql()
 	if err != nil {
-		return nil, fmt.Errorf("failed to search movies: %w", err)
+		return nil, fmt.Errorf("failed to build query: %w", err)
+	}
+
+	rows, err := m.db.Query(sqlQuery, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to search movies by title: %w", err)
 	}
 	defer rows.Close()
 
@@ -168,24 +222,31 @@ func (m *movie) SearchMoviesByTitle(titleFragment string, limit, offset int) ([]
 // Поиск фильмов по актеру
 func (m *movie) SearchMoviesByActorName(actorNameFragment string, limit, offset int) ([]*models.Movie, error) {
 	var movies []*models.Movie
-	query := `
-        SELECT DISTINCT m.id, m.title, m.description, m.release_date, m.rating 
-        FROM movies m
-        JOIN movie_actors ma ON m.id = ma.movie_id
-        JOIN actors a ON ma.actor_id = a.id
-        WHERE a.name ILIKE '%' || $1 || '%'
-		LIMIT $2 OFFSET $3`
+	query := sq.
+		Select("DISTINCT m.id", "m.title", "m.description", "m.release_date", "m.rating").
+		From("movies m").
+		Join("movie_actors ma ON m.id = ma.movie_id").
+		Join("actors a ON ma.actor_id = a.id").
+		Where(sq.Like{"a.name": fmt.Sprintf("%%%s%%", actorNameFragment)}).
+		Limit(uint64(limit)).
+		Offset(uint64(offset)).
+		PlaceholderFormat(sq.Dollar)
 
-	rows, err := m.db.Query(query, actorNameFragment, limit, offset)
+	sqlQuery, args, err := query.ToSql()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to build query: %w", err)
+	}
+
+	rows, err := m.db.Query(sqlQuery, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to search movies by actor: %w", err)
 	}
 	defer rows.Close()
 
 	for rows.Next() {
 		var movie models.Movie
 		if err := rows.Scan(&movie.ID, &movie.Title, &movie.Description, &movie.ReleaseDate, &movie.Rating); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to scan movie: %w", err)
 		}
 		movies = append(movies, &movie)
 	}
@@ -195,15 +256,21 @@ func (m *movie) SearchMoviesByActorName(actorNameFragment string, limit, offset 
 
 // Обновить фильм
 func (m *movie) UpdateMovie(id uuid.UUID, movie models.UpdateMovie) error {
-	query := `
-        UPDATE movies SET
-            title = COALESCE($1, title),
-            description = COALESCE($2, description),
-            release_date = COALESCE($3, release_date),
-            rating = COALESCE($4, rating)
-        WHERE id = $5`
+	query := sq.
+		Update("movies").
+		Set("title", sq.Expr("COALESCE(?, title)", movie.Title)).
+		Set("description", sq.Expr("COALESCE(?, description)", movie.Description)).
+		Set("release_date", sq.Expr("COALESCE(?, release_date)", movie.ReleaseDate)).
+		Set("rating", sq.Expr("COALESCE(?, rating)", movie.Rating)).
+		Where(sq.Eq{"id": id}).
+		PlaceholderFormat(sq.Dollar)
 
-	_, err := m.db.Exec(query, movie.Title, movie.Description, movie.ReleaseDate, movie.Rating, id)
+	sqlQuery, args, err := query.ToSql()
+	if err != nil {
+		return fmt.Errorf("failed to build query: %w", err)
+	}
+
+	_, err = m.db.Exec(sqlQuery, args...)
 	if err != nil {
 		return fmt.Errorf("failed to update movie: %w", err)
 	}
@@ -212,8 +279,17 @@ func (m *movie) UpdateMovie(id uuid.UUID, movie models.UpdateMovie) error {
 
 // Удалить фильм по id
 func (m *movie) DeleteMovie(id uuid.UUID) error {
-	query := `DELETE FROM movies WHERE id = $1`
-	_, err := m.db.Exec(query, id)
+	query := sq.
+		Delete("movies").
+		Where(sq.Eq{"id": id}).
+		PlaceholderFormat(sq.Dollar)
+
+	sqlQuery, args, err := query.ToSql()
+	if err != nil {
+		return fmt.Errorf("failed to build query: %w", err)
+	}
+
+	_, err = m.db.Exec(sqlQuery, args...)
 	if err != nil {
 		return fmt.Errorf("failed to delete movie: %w", err)
 	}
@@ -223,9 +299,19 @@ func (m *movie) DeleteMovie(id uuid.UUID) error {
 // Получение списка фильмов
 func (m *movie) GetAllMovies(limit, offset int) ([]*models.Movie, error) {
 	var movies []*models.Movie
-	query := `SELECT id, title, description, release_date, rating FROM movies LIMIT $1 OFFSET $2`
+	query := sq.
+		Select("id", "title", "description", "release_date", "rating").
+		From("movies").
+		Limit(uint64(limit)).
+		Offset(uint64(offset)).
+		PlaceholderFormat(sq.Dollar)
 
-	rows, err := m.db.Query(query, limit, offset) // Передаем limit и offset
+	sqlQuery, args, err := query.ToSql()
+	if err != nil {
+		return nil, fmt.Errorf("failed to build query: %w", err)
+	}
+
+	rows, err := m.db.Query(sqlQuery, args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get movies: %w", err)
 	}

@@ -46,7 +46,7 @@ func Run() error {
 	}
 
 	// Получить актеров и фильмы
-	actors, err := actorRepo.GetActorsWithMovies(7, 1)
+	actors, err := actorRepo.GetActorsWithMovies(2, 1)
 	if err != nil {
 		fmt.Println(err)
 	}
