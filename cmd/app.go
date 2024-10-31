@@ -1,9 +1,10 @@
 package main
 
 import (
+	"cinema/internal/controller"
 	"cinema/internal/postgres"
 	"cinema/internal/repository"
-	"fmt"
+	"cinema/internal/service"
 	"log"
 
 	_ "github.com/lib/pq"
@@ -18,41 +19,10 @@ func Run() error {
 
 	movieRepo := repository.NewMovie(db)
 	actorRepo := repository.NewActor(db)
+	movieService := service.NewMovie(movieRepo)
+	actorService := service.NewActor(actorRepo)
+	cinema := controller.NewCinema(movieService, actorService)
 
-	// добавить актера
-	// birthDate := time.Date(1990, 1, 1, 0, 0, 0, 0, time.UTC)
-	// actorID, _ := actorRepo.AddActor(models.CreateActor{"TestActor", "male", birthDate})
-
-	// // добавить фильм
-	// release := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
-	// movieID, _ := movieRepo.AddMovie(models.CreateMovie{"TestMovie", "testdisc", release, 5})
-
-	// добавить связь актер-фильм
-	// movieRepo.AddActorToMovieRelation(actorID, movieID)
-
-	// Поиск фильмов по имени актера
-	// movies, _ := movieRepo.SearchMoviesByActorName("ar")
-	// for _, movie := range movies {
-	// 	fmt.Println(movie.Title)
-	// }
-
-	// Поиск фильмов по названию
-	movies, err := movieRepo.GetMovies("ratidgfdgng", "DESC", 4, 2)
-	if err != nil {
-		fmt.Println(err)
-	}
-	for _, movie := range movies {
-		fmt.Println("movie:", movie.Title, "rating:", movie.Rating)
-	}
-
-	// Получить актеров и фильмы
-	actors, err := actorRepo.GetActorsWithMovies(2, 1)
-	if err != nil {
-		fmt.Println(err)
-	}
-	for _, actor := range actors {
-		fmt.Println("actor:", actor.Name, "id", actor.ID)
-	}
 	return nil
 }
 

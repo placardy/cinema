@@ -145,7 +145,7 @@ func (a *actor) GetAllActors(limit, offset int) ([]*models.Actor, error) {
 }
 
 // Получить актеров с фильмами с пагинацией
-func (a *actor) GetActorsWithMovies(limit, offset int) ([]models.Actor, error) {
+func (a *actor) GetActorsWithMovies(limit, offset int) ([]*models.Actor, error) {
 	// Создаем подзапрос для пагинации актеров
 	actorsQuery := sq.
 		Select("id AS actor_id", "name AS actor_name", "gender AS actor_gender", "date_of_birth AS actor_birth_date").
@@ -176,7 +176,7 @@ func (a *actor) GetActorsWithMovies(limit, offset int) ([]models.Actor, error) {
 	defer rows.Close()
 
 	// Срез для хранения актеров в порядке их получения
-	var actors []models.Actor
+	var actors []*models.Actor
 
 	// Создаем мапу для отслеживания добавленных актеров
 	actorsMap := make(map[uuid.UUID]*models.Actor)
@@ -241,7 +241,7 @@ func (a *actor) GetActorsWithMovies(limit, offset int) ([]models.Actor, error) {
 			}
 			// Сохраняем актера в мапе и срезе
 			actorsMap[actorID] = newActor
-			actors = append(actors, *newActor)
+			actors = append(actors, newActor)
 		}
 	}
 

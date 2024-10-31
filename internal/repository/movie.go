@@ -84,7 +84,7 @@ func (m *movie) RemoveMovieActorRelation(actorID, movieID uuid.UUID) error {
 }
 
 // Получить фильм по id
-func (m *movie) GetMovie(id uuid.UUID) (*models.Movie, error) {
+func (m *movie) GetMovieByID(id uuid.UUID) (*models.Movie, error) {
 	query := sq.
 		Select("id", "title", "description", "release_date", "rating").
 		From("movies").
@@ -139,7 +139,7 @@ func (m *movie) GetMoviesByActorID(actorID uuid.UUID, limit, offset int) ([]*mod
 }
 
 // Получить фильмы с фильтрацией
-func (m *movie) GetMovies(sortBy string, order string, limit, offset int) ([]*models.Movie, error) {
+func (m *movie) GetMoviesWithFilters(sortBy string, order string, limit, offset int) ([]*models.Movie, error) {
 	//валидация
 	validSortColumns := map[string]struct{}{
 		"title":        {},
