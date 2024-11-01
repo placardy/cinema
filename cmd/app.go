@@ -17,12 +17,12 @@ func Run() error {
 	}
 	defer db.Close()
 
-	movieRepo := repository.NewMovie(db)
-	actorRepo := repository.NewActor(db)
-	movieService := service.NewMovie(movieRepo)
-	actorService := service.NewActor(actorRepo)
-	cinemaCtrl := controller.NewCinema(movieService, actorService)
-	movies := cinemaCtrl.GetAllActors()
+	movieStore := repository.NewMovie(db)
+	actorStore := repository.NewActor(db)
+	movieService := service.NewMovie(movieStore)
+	actorService := service.NewActor(actorStore)
+	cinemaController := controller.NewCinema(movieService, actorService)
+	cinemaController.GetAllMovies()
 
 	return nil
 }
