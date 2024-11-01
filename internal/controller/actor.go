@@ -23,12 +23,12 @@ type actor struct {
 	service serviceActor
 }
 
-func NewActor(service serviceActor) actor {
-	return actor{service: service}
+func NewActor(service serviceActor) *actor {
+	return &actor{service: service}
 }
 
 // Добавление актера
-func (c actor) AddActor(w http.ResponseWriter, r *http.Request) {
+func (c *actor) AddActor(w http.ResponseWriter, r *http.Request) {
 	var newActor models.CreateActor
 	if err := json.NewDecoder(r.Body).Decode(&newActor); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
@@ -43,7 +43,7 @@ func (c actor) AddActor(w http.ResponseWriter, r *http.Request) {
 }
 
 // Получение актера по ID
-func (c actor) GetActor(w http.ResponseWriter, r *http.Request) {
+func (c *actor) GetActor(w http.ResponseWriter, r *http.Request) {
 	idParam := r.URL.Query().Get("id")
 	actorID, err := uuid.Parse(idParam)
 	if err != nil {
@@ -63,7 +63,7 @@ func (c actor) GetActor(w http.ResponseWriter, r *http.Request) {
 }
 
 // Обновление актера
-func (c actor) UpdateActor(w http.ResponseWriter, r *http.Request) {
+func (c *actor) UpdateActor(w http.ResponseWriter, r *http.Request) {
 	idParam := r.URL.Query().Get("id")
 	actorID, err := uuid.Parse(idParam)
 	if err != nil {
@@ -84,7 +84,7 @@ func (c actor) UpdateActor(w http.ResponseWriter, r *http.Request) {
 }
 
 // Удаление актера
-func (c actor) DeleteActor(w http.ResponseWriter, r *http.Request) {
+func (c *actor) DeleteActor(w http.ResponseWriter, r *http.Request) {
 	idParam := r.URL.Query().Get("id")
 	actorID, err := uuid.Parse(idParam)
 	if err != nil {
@@ -99,7 +99,7 @@ func (c actor) DeleteActor(w http.ResponseWriter, r *http.Request) {
 }
 
 // Получение всех актеров с пагинацией
-func (c actor) GetAllActors(w http.ResponseWriter, r *http.Request) {
+func (c *actor) GetAllActors(w http.ResponseWriter, r *http.Request) {
 	limit, offset, err := parseLimitOffset(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -115,7 +115,7 @@ func (c actor) GetAllActors(w http.ResponseWriter, r *http.Request) {
 }
 
 // Получение актеров с фильмами
-func (c actor) GetActorsWithMovies(w http.ResponseWriter, r *http.Request) {
+func (c *actor) GetActorsWithMovies(w http.ResponseWriter, r *http.Request) {
 	limit, offset, err := parseLimitOffset(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)

@@ -5,6 +5,6 @@ type cinema struct {
 	actor serviceActor
 }
 
-func NewCinema(movie serviceMovie, actor serviceActor) cinema {
-	return cinema{movie: movie, actor: actor}
+func NewCinema(movie serviceMovie, actor serviceActor) *cinema {
+	return &cinema{movie: movie, actor: actor}
 }

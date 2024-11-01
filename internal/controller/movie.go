@@ -26,12 +26,12 @@ type movie struct {
 	service serviceMovie
 }
 
-func NewMovie(service serviceMovie) movie {
-	return movie{service: service}
+func NewMovie(service serviceMovie) *movie {
+	return &movie{service: service}
 }
 
 // Добавить фильм
-func (m movie) AddMovie(w http.ResponseWriter, r *http.Request) {
+func (m *movie) AddMovie(w http.ResponseWriter, r *http.Request) {
 	var newMovie models.CreateMovie
 	if err := json.NewDecoder(r.Body).Decode(&newMovie); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
@@ -49,7 +49,7 @@ func (m movie) AddMovie(w http.ResponseWriter, r *http.Request) {
 }
 
 // Добавить связь между актером и фильмом
-func (m movie) AddMovieActorRelation(w http.ResponseWriter, r *http.Request) {
+func (m *movie) AddMovieActorRelation(w http.ResponseWriter, r *http.Request) {
 	var relation struct {
 		ActorID uuid.UUID `json:"actor_id"`
 		MovieID uuid.UUID `json:"movie_id"`
@@ -69,7 +69,7 @@ func (m movie) AddMovieActorRelation(w http.ResponseWriter, r *http.Request) {
 }
 
 // Удалить связь между актером и фильмом
-func (m movie) RemoveMovieActorRelation(w http.ResponseWriter, r *http.Request) {
+func (m *movie) RemoveMovieActorRelation(w http.ResponseWriter, r *http.Request) {
 	var relation struct {
 		ActorID uuid.UUID `json:"actor_id"`
 		MovieID uuid.UUID `json:"movie_id"`
@@ -89,7 +89,7 @@ func (m movie) RemoveMovieActorRelation(w http.ResponseWriter, r *http.Request) 
 }
 
 // Получить фильм по ID
-func (m movie) GetMovieByID(w http.ResponseWriter, r *http.Request) {
+func (m *movie) GetMovieByID(w http.ResponseWriter, r *http.Request) {
 	idStr := r.URL.Query().Get("id")
 	id, err := uuid.Parse(idStr)
 	if err != nil {
@@ -113,7 +113,7 @@ func (m movie) GetMovieByID(w http.ResponseWriter, r *http.Request) {
 }
 
 // Получить фильмы по актеру
-func (m movie) GetMoviesByActorID(w http.ResponseWriter, r *http.Request) {
+func (m *movie) GetMoviesByActorID(w http.ResponseWriter, r *http.Request) {
 	actorIDStr := r.URL.Query().Get("actor_id")
 	actorID, err := uuid.Parse(actorIDStr)
 	if err != nil {
@@ -137,7 +137,7 @@ func (m movie) GetMoviesByActorID(w http.ResponseWriter, r *http.Request) {
 }
 
 // Получить фильмы с фильтрацией
-func (m movie) GetMoviesWithFilters(w http.ResponseWriter, r *http.Request) {
+func (m *movie) GetMoviesWithFilters(w http.ResponseWriter, r *http.Request) {
 	sortBy := r.URL.Query().Get("sortBy")
 	order := r.URL.Query().Get("order")
 	limit, offset, err := parseLimitOffset(r)
@@ -157,7 +157,7 @@ func (m movie) GetMoviesWithFilters(w http.ResponseWriter, r *http.Request) {
 }
 
 // Поиск фильмов по названию
-func (m movie) SearchMoviesByTitle(w http.ResponseWriter, r *http.Request) {
+func (m *movie) SearchMoviesByTitle(w http.ResponseWriter, r *http.Request) {
 	titleFragment := r.URL.Query().Get("title")
 	limit, offset, err := parseLimitOffset(r)
 	if err != nil {
@@ -176,7 +176,7 @@ func (m movie) SearchMoviesByTitle(w http.ResponseWriter, r *http.Request) {
 }
 
 // Поиск фильмов по актеру
-func (m movie) SearchMoviesByActorName(w http.ResponseWriter, r *http.Request) {
+func (m *movie) SearchMoviesByActorName(w http.ResponseWriter, r *http.Request) {
 	actorNameFragment := r.URL.Query().Get("actor_name")
 	limit, offset, err := parseLimitOffset(r)
 	if err != nil {
@@ -195,7 +195,7 @@ func (m movie) SearchMoviesByActorName(w http.ResponseWriter, r *http.Request) {
 }
 
 // Обновить фильм
-func (m movie) UpdateMovie(w http.ResponseWriter, r *http.Request) {
+func (m *movie) UpdateMovie(w http.ResponseWriter, r *http.Request) {
 	idStr := r.URL.Query().Get("id")
 	id, err := uuid.Parse(idStr)
 	if err != nil {
@@ -218,7 +218,7 @@ func (m movie) UpdateMovie(w http.ResponseWriter, r *http.Request) {
 }
 
 // Удалить фильм по ID
-func (m movie) DeleteMovie(w http.ResponseWriter, r *http.Request) {
+func (m *movie) DeleteMovie(w http.ResponseWriter, r *http.Request) {
 	idStr := r.URL.Query().Get("id")
 	id, err := uuid.Parse(idStr)
 	if err != nil {
@@ -235,7 +235,7 @@ func (m movie) DeleteMovie(w http.ResponseWriter, r *http.Request) {
 }
 
 // Получить все фильмы
-func (m movie) GetAllMovies(w http.ResponseWriter, r *http.Request) {
+func (m *movie) GetAllMovies(w http.ResponseWriter, r *http.Request) {
 	limit, offset, err := parseLimitOffset(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)

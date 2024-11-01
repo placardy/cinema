@@ -21,7 +21,8 @@ func Run() error {
 	actorRepo := repository.NewActor(db)
 	movieService := service.NewMovie(movieRepo)
 	actorService := service.NewActor(actorRepo)
-	cinema := controller.NewCinema(movieService, actorService)
+	cinemaCtrl := controller.NewCinema(movieService, actorService)
+	movies := cinemaCtrl.GetAllActors()
 
 	return nil
 }
