@@ -22,7 +22,6 @@ func Run() error {
 	movieService := service.NewMovie(movieStore)
 	actorService := service.NewActor(actorStore)
 	cinemaController := controller.NewCinema(movieService, actorService)
-	cinemaController.GetAllMovies()
 
 	return nil
 }

@@ -43,13 +43,13 @@ func NewCinema(movie serviceMovie, actor serviceActor) *cinema {
 }
 
 // Добавление актера
-func (c *actor) AddActor(w http.ResponseWriter, r *http.Request) {
+func (c *cinema) AddActor(w http.ResponseWriter, r *http.Request) {
 	var newActor models.CreateActor
 	if err := json.NewDecoder(r.Body).Decode(&newActor); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
-	actorID, err := c.service.AddActor(newActor)
+	actorID, err := c.actor.AddActor(newActor)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -58,14 +58,14 @@ func (c *actor) AddActor(w http.ResponseWriter, r *http.Request) {
 }
 
 // Получение актера по ID
-func (c *actor) GetActor(w http.ResponseWriter, r *http.Request) {
+func (c *cinema) GetActor(w http.ResponseWriter, r *http.Request) {
 	idParam := r.URL.Query().Get("id")
 	actorID, err := uuid.Parse(idParam)
 	if err != nil {
 		http.Error(w, "Invalid actor ID", http.StatusBadRequest)
 		return
 	}
-	actor, err := c.service.GetActor(actorID)
+	actor, err := c.actor.GetActor(actorID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -78,7 +78,7 @@ func (c *actor) GetActor(w http.ResponseWriter, r *http.Request) {
 }
 
 // Обновление актера
-func (c *actor) UpdateActor(w http.ResponseWriter, r *http.Request) {
+func (c *cinema) UpdateActor(w http.ResponseWriter, r *http.Request) {
 	idParam := r.URL.Query().Get("id")
 	actorID, err := uuid.Parse(idParam)
 	if err != nil {
@@ -91,7 +91,7 @@ func (c *actor) UpdateActor(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
-	if err := c.service.UpdateActor(actorID, updateActor); err != nil {
+	if err := c.actor.UpdateActor(actorID, updateActor); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -99,14 +99,14 @@ func (c *actor) UpdateActor(w http.ResponseWriter, r *http.Request) {
 }
 
 // Удаление актера
-func (c *actor) DeleteActor(w http.ResponseWriter, r *http.Request) {
+func (c *cinema) DeleteActor(w http.ResponseWriter, r *http.Request) {
 	idParam := r.URL.Query().Get("id")
 	actorID, err := uuid.Parse(idParam)
 	if err != nil {
 		http.Error(w, "Invalid actor ID", http.StatusBadRequest)
 		return
 	}
-	if err := c.service.DeleteActor(actorID); err != nil {
+	if err := c.actor.DeleteActor(actorID); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -114,14 +114,14 @@ func (c *actor) DeleteActor(w http.ResponseWriter, r *http.Request) {
 }
 
 // Получение всех актеров с пагинацией
-func (c *actor) GetAllActors(w http.ResponseWriter, r *http.Request) {
+func (c *cinema) GetAllActors(w http.ResponseWriter, r *http.Request) {
 	limit, offset, err := parseLimitOffset(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	actors, err := c.service.GetAllActors(limit, offset)
+	actors, err := c.actor.GetAllActors(limit, offset)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -130,14 +130,14 @@ func (c *actor) GetAllActors(w http.ResponseWriter, r *http.Request) {
 }
 
 // Получение актеров с фильмами
-func (c *actor) GetActorsWithMovies(w http.ResponseWriter, r *http.Request) {
+func (c *cinema) GetActorsWithMovies(w http.ResponseWriter, r *http.Request) {
 	limit, offset, err := parseLimitOffset(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	actors, err := c.service.GetActorsWithMovies(limit, offset)
+	actors, err := c.actor.GetActorsWithMovies(limit, offset)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -158,14 +158,14 @@ func parseLimitOffset(r *http.Request) (int, int, error) {
 }
 
 // Добавить фильм
-func (m *movie) AddMovie(w http.ResponseWriter, r *http.Request) {
+func (c *cinema) AddMovie(w http.ResponseWriter, r *http.Request) {
 	var newMovie models.CreateMovie
 	if err := json.NewDecoder(r.Body).Decode(&newMovie); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	id, err := m.service.AddMovie(newMovie)
+	id, err := c.movie.AddMovie(newMovie)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -176,7 +176,7 @@ func (m *movie) AddMovie(w http.ResponseWriter, r *http.Request) {
 }
 
 // Добавить связь между актером и фильмом
-func (m *movie) AddMovieActorRelation(w http.ResponseWriter, r *http.Request) {
+func (c *cinema) AddMovieActorRelation(w http.ResponseWriter, r *http.Request) {
 	var relation struct {
 		ActorID uuid.UUID `json:"actor_id"`
 		MovieID uuid.UUID `json:"movie_id"`
@@ -187,7 +187,7 @@ func (m *movie) AddMovieActorRelation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := m.service.AddMovieActorRelation(relation.ActorID, relation.MovieID); err != nil {
+	if err := c.movie.AddMovieActorRelation(relation.ActorID, relation.MovieID); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -196,7 +196,7 @@ func (m *movie) AddMovieActorRelation(w http.ResponseWriter, r *http.Request) {
 }
 
 // Удалить связь между актером и фильмом
-func (m *movie) RemoveMovieActorRelation(w http.ResponseWriter, r *http.Request) {
+func (c *cinema) RemoveMovieActorRelation(w http.ResponseWriter, r *http.Request) {
 	var relation struct {
 		ActorID uuid.UUID `json:"actor_id"`
 		MovieID uuid.UUID `json:"movie_id"`
@@ -207,7 +207,7 @@ func (m *movie) RemoveMovieActorRelation(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	if err := m.service.RemoveMovieActorRelation(relation.ActorID, relation.MovieID); err != nil {
+	if err := c.movie.RemoveMovieActorRelation(relation.ActorID, relation.MovieID); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -216,7 +216,7 @@ func (m *movie) RemoveMovieActorRelation(w http.ResponseWriter, r *http.Request)
 }
 
 // Получить фильм по ID
-func (m *movie) GetMovieByID(w http.ResponseWriter, r *http.Request) {
+func (c *cinema) GetMovieByID(w http.ResponseWriter, r *http.Request) {
 	idStr := r.URL.Query().Get("id")
 	id, err := uuid.Parse(idStr)
 	if err != nil {
@@ -224,7 +224,7 @@ func (m *movie) GetMovieByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	movie, err := m.service.GetMovieByID(id)
+	movie, err := c.movie.GetMovieByID(id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -240,7 +240,7 @@ func (m *movie) GetMovieByID(w http.ResponseWriter, r *http.Request) {
 }
 
 // Получить фильмы по актеру
-func (m *movie) GetMoviesByActorID(w http.ResponseWriter, r *http.Request) {
+func (c *cinema) GetMoviesByActorID(w http.ResponseWriter, r *http.Request) {
 	actorIDStr := r.URL.Query().Get("actor_id")
 	actorID, err := uuid.Parse(actorIDStr)
 	if err != nil {
@@ -253,7 +253,7 @@ func (m *movie) GetMoviesByActorID(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	movies, err := m.service.GetMoviesByActorID(actorID, limit, offset)
+	movies, err := c.movie.GetMoviesByActorID(actorID, limit, offset)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -264,7 +264,7 @@ func (m *movie) GetMoviesByActorID(w http.ResponseWriter, r *http.Request) {
 }
 
 // Получить фильмы с фильтрацией
-func (m *movie) GetMoviesWithFilters(w http.ResponseWriter, r *http.Request) {
+func (c *cinema) GetMoviesWithFilters(w http.ResponseWriter, r *http.Request) {
 	sortBy := r.URL.Query().Get("sortBy")
 	order := r.URL.Query().Get("order")
 	limit, offset, err := parseLimitOffset(r)
@@ -273,7 +273,7 @@ func (m *movie) GetMoviesWithFilters(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	movies, err := m.service.GetMoviesWithFilters(sortBy, order, limit, offset)
+	movies, err := c.movie.GetMoviesWithFilters(sortBy, order, limit, offset)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -284,7 +284,7 @@ func (m *movie) GetMoviesWithFilters(w http.ResponseWriter, r *http.Request) {
 }
 
 // Поиск фильмов по названию
-func (m *movie) SearchMoviesByTitle(w http.ResponseWriter, r *http.Request) {
+func (c *cinema) SearchMoviesByTitle(w http.ResponseWriter, r *http.Request) {
 	titleFragment := r.URL.Query().Get("title")
 	limit, offset, err := parseLimitOffset(r)
 	if err != nil {
@@ -292,7 +292,7 @@ func (m *movie) SearchMoviesByTitle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	movies, err := m.service.SearchMoviesByTitle(titleFragment, limit, offset)
+	movies, err := c.movie.SearchMoviesByTitle(titleFragment, limit, offset)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -303,7 +303,7 @@ func (m *movie) SearchMoviesByTitle(w http.ResponseWriter, r *http.Request) {
 }
 
 // Поиск фильмов по актеру
-func (m *movie) SearchMoviesByActorName(w http.ResponseWriter, r *http.Request) {
+func (c *cinema) SearchMoviesByActorName(w http.ResponseWriter, r *http.Request) {
 	actorNameFragment := r.URL.Query().Get("actor_name")
 	limit, offset, err := parseLimitOffset(r)
 	if err != nil {
@@ -311,7 +311,7 @@ func (m *movie) SearchMoviesByActorName(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	movies, err := m.service.SearchMoviesByActorName(actorNameFragment, limit, offset)
+	movies, err := c.movie.SearchMoviesByActorName(actorNameFragment, limit, offset)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -322,7 +322,7 @@ func (m *movie) SearchMoviesByActorName(w http.ResponseWriter, r *http.Request) 
 }
 
 // Обновить фильм
-func (m *movie) UpdateMovie(w http.ResponseWriter, r *http.Request) {
+func (c *cinema) UpdateMovie(w http.ResponseWriter, r *http.Request) {
 	idStr := r.URL.Query().Get("id")
 	id, err := uuid.Parse(idStr)
 	if err != nil {
@@ -336,7 +336,7 @@ func (m *movie) UpdateMovie(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := m.service.UpdateMovie(id, updatedMovie); err != nil {
+	if err := c.movie.UpdateMovie(id, updatedMovie); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -345,7 +345,7 @@ func (m *movie) UpdateMovie(w http.ResponseWriter, r *http.Request) {
 }
 
 // Удалить фильм по ID
-func (m *movie) DeleteMovie(w http.ResponseWriter, r *http.Request) {
+func (c *cinema) DeleteMovie(w http.ResponseWriter, r *http.Request) {
 	idStr := r.URL.Query().Get("id")
 	id, err := uuid.Parse(idStr)
 	if err != nil {
@@ -353,7 +353,7 @@ func (m *movie) DeleteMovie(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := m.service.DeleteMovie(id); err != nil {
+	if err := c.movie.DeleteMovie(id); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -362,14 +362,14 @@ func (m *movie) DeleteMovie(w http.ResponseWriter, r *http.Request) {
 }
 
 // Получить все фильмы
-func (m *movie) GetAllMovies(w http.ResponseWriter, r *http.Request) {
+func (c *cinema) GetAllMovies(w http.ResponseWriter, r *http.Request) {
 	limit, offset, err := parseLimitOffset(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	movies, err := m.service.GetAllMovies(limit, offset)
+	movies, err := c.movie.GetAllMovies(limit, offset)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
