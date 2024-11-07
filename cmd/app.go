@@ -22,7 +22,7 @@ func Run() error {
 	movieService := service.NewMovie(movieStore)
 	actorService := service.NewActor(actorStore)
 	cinemaController := controller.NewCinema(movieService, actorService)
-
+	//cinemaController.AddMovie() GIT TEST
 	return nil
 }
 
