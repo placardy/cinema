@@ -42,7 +42,7 @@ func (a *actor) AddActor(actor models.CreateActor) (uuid.UUID, error) {
 }
 
 // Получить актера по id
-func (a *actor) GetActor(id uuid.UUID) (*models.Actor, error) {
+func (a *actor) GetActor(id uuid.UUID) (map[string]interface{}, error) {
 	query := sq.
 		Select("id", "name", "gender", "date_of_birth").
 		From("actors").
@@ -54,15 +54,25 @@ func (a *actor) GetActor(id uuid.UUID) (*models.Actor, error) {
 		return nil, fmt.Errorf("failed to build query: %w", err)
 	}
 
-	var actor models.Actor
-	err = a.db.QueryRow(sqlQuery, args...).Scan(&actor.ID, &actor.Name, &actor.Gender, &actor.DateOfBirth)
+	rawData := make(map[string]interface{})
+	var actorID uuid.UUID
+	var name, gender string
+	var dateOfBirth time.Time
+
+	err = a.db.QueryRow(sqlQuery, args...).Scan(&actorID, &name, &gender, &dateOfBirth)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil // Актёр не найден
 		}
 		return nil, fmt.Errorf("failed to get actor: %w", err)
 	}
-	return &actor, nil
+
+	rawData["id"] = actorID
+	rawData["name"] = name
+	rawData["gender"] = gender
+	rawData["date_of_birth"] = dateOfBirth
+
+	return rawData, nil
 }
 
 // Обновить актера
@@ -106,8 +116,8 @@ func (a *actor) DeleteActor(id uuid.UUID) error {
 	return nil
 }
 
-// Получить всех актеров
-func (a *actor) GetAllActors(limit, offset int) ([]*models.Actor, error) {
+// Получить актеров
+func (a *actor) GetAllActors(limit, offset int) ([]map[string]interface{}, error) {
 	query := sq.
 		Select("id", "name", "gender", "date_of_birth").
 		From("actors").
@@ -126,14 +136,24 @@ func (a *actor) GetAllActors(limit, offset int) ([]*models.Actor, error) {
 	}
 	defer rows.Close()
 
-	var actors []*models.Actor
+	var rawActors []map[string]interface{}
 	for rows.Next() {
-		var actor models.Actor
-		err := rows.Scan(&actor.ID, &actor.Name, &actor.Gender, &actor.DateOfBirth)
+		var id uuid.UUID
+		var name, gender string
+		var dateOfBirth time.Time
+
+		err := rows.Scan(&id, &name, &gender, &dateOfBirth)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan actor: %w", err)
 		}
-		actors = append(actors, &actor)
+
+		rawActor := map[string]interface{}{
+			"id":            id,
+			"name":          name,
+			"gender":        gender,
+			"date_of_birth": dateOfBirth,
+		}
+		rawActors = append(rawActors, rawActor)
 	}
 
 	// Проверяем наличие ошибок при итерации по строкам
@@ -141,11 +161,11 @@ func (a *actor) GetAllActors(limit, offset int) ([]*models.Actor, error) {
 		return nil, fmt.Errorf("error occurred while iterating rows: %w", err)
 	}
 
-	return actors, nil
+	return rawActors, nil
 }
 
 // Получить актеров с фильмами с пагинацией
-func (a *actor) GetActorsWithMovies(limit, offset int) ([]*models.Actor, error) {
+func (a *actor) GetActorsWithMovies(limit, offset int) ([]map[string]interface{}, error) {
 	// Создаем подзапрос для пагинации актеров
 	actorsQuery := sq.
 		Select("id AS actor_id", "name AS actor_name", "gender AS actor_gender", "date_of_birth AS actor_birth_date").
@@ -176,10 +196,10 @@ func (a *actor) GetActorsWithMovies(limit, offset int) ([]*models.Actor, error) 
 	defer rows.Close()
 
 	// Срез для хранения актеров в порядке их получения
-	var actors []*models.Actor
+	var result []map[string]interface{}
 
 	// Создаем мапу для отслеживания добавленных актеров
-	actorsMap := make(map[uuid.UUID]*models.Actor)
+	// actorsMap := make(map[uuid.UUID]*models.Actor)
 
 	for rows.Next() {
 		var (
@@ -208,42 +228,58 @@ func (a *actor) GetActorsWithMovies(limit, offset int) ([]*models.Actor, error) 
 			return nil, err
 		}
 
-		// Проверяем, существует ли актер в мапе
-		if actor, exists := actorsMap[actorID]; exists {
-			// Добавляем фильм к существующему актеру
-			if movieID != nil {
-				actor.Movies = append(actor.Movies, models.Movie{
-					ID:          *movieID,
-					Title:       *movieTitle,
-					Description: *movieDesc,
-					ReleaseDate: *movieRelease,
-					Rating:      *movieRating,
-				})
-			}
-		} else {
-			// Создаем нового актера и добавляем его в срез
-			newActor := &models.Actor{
-				ID:          actorID,
-				Name:        actorName,
-				Gender:      actorGender,
-				DateOfBirth: actorBirthDate,
-				Movies:      []models.Movie{},
-			}
-			// Добавляем фильм только если он существует
-			if movieID != nil {
-				newActor.Movies = append(newActor.Movies, models.Movie{
-					ID:          *movieID,
-					Title:       *movieTitle,
-					Description: *movieDesc,
-					ReleaseDate: *movieRelease,
-					Rating:      *movieRating,
-				})
-			}
-			// Сохраняем актера в мапе и срезе
-			actorsMap[actorID] = newActor
-			actors = append(actors, newActor)
-		}
+		result = append(result, map[string]interface{}{
+			"actor_id":           actorID,
+			"actor_name":         actorName,
+			"actor_gender":       actorGender,
+			"actor_birth_date":   actorBirthDate,
+			"movie_id":           movieID,
+			"movie_title":        movieTitle,
+			"movie_description":  movieDesc,
+			"movie_release_date": movieRelease,
+			"movie_rating":       movieRating,
+		})
 	}
 
-	return actors, nil
+	return result, nil
 }
+
+// 		// Проверяем, существует ли актер в мапе
+// 		if actor, exists := actorsMap[actorID]; exists {
+// 			// Добавляем фильм к существующему актеру
+// 			if movieID != nil {
+// 				actor.Movies = append(actor.Movies, models.Movie{
+// 					ID:          *movieID,
+// 					Title:       *movieTitle,
+// 					Description: *movieDesc,
+// 					ReleaseDate: *movieRelease,
+// 					Rating:      *movieRating,
+// 				})
+// 			}
+// 		} else {
+// 			// Создаем нового актера и добавляем его в срез
+// 			newActor := &models.Actor{
+// 				ID:          actorID,
+// 				Name:        actorName,
+// 				Gender:      actorGender,
+// 				DateOfBirth: actorBirthDate,
+// 				Movies:      []models.Movie{},
+// 			}
+// 			// Добавляем фильм только если он существует
+// 			if movieID != nil {
+// 				newActor.Movies = append(newActor.Movies, models.Movie{
+// 					ID:          *movieID,
+// 					Title:       *movieTitle,
+// 					Description: *movieDesc,
+// 					ReleaseDate: *movieRelease,
+// 					Rating:      *movieRating,
+// 				})
+// 			}
+// 			// Сохраняем актера в мапе и срезе
+// 			actorsMap[actorID] = newActor
+// 			actors = append(actors, newActor)
+// 		}
+// 	}
+
+// 	return actors, nil
+// }

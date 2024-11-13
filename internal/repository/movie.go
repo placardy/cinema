@@ -3,6 +3,7 @@ package repository
 import (
 	"database/sql"
 	"fmt"
+	"time"
 
 	"cinema/internal/models"
 
@@ -22,7 +23,6 @@ func NewMovie(db *sql.DB) *movie {
 // Добавить фильм
 func (m *movie) AddMovie(movie models.CreateMovie) (uuid.UUID, error) {
 	id := uuid.New()
-
 	query := sq.
 		Insert("movies").
 		Columns("id", "title", "description", "release_date", "rating").
@@ -35,7 +35,6 @@ func (m *movie) AddMovie(movie models.CreateMovie) (uuid.UUID, error) {
 		return uuid.Nil, fmt.Errorf("failed to build query: %w", err)
 	}
 
-	// Выполняем запрос и сканируем результат
 	err = m.db.QueryRow(sqlQuery, args...).Scan(&id)
 	if err != nil {
 		return uuid.Nil, fmt.Errorf("failed to add movie: %w", err)
@@ -84,7 +83,7 @@ func (m *movie) RemoveMovieActorRelation(actorID, movieID uuid.UUID) error {
 }
 
 // Получить фильм по id
-func (m *movie) GetMovieByID(id uuid.UUID) (*models.Movie, error) {
+func (m *movie) GetMovieByID(id uuid.UUID) (map[string]interface{}, error) {
 	query := sq.
 		Select("id", "title", "description", "release_date", "rating").
 		From("movies").
@@ -95,19 +94,31 @@ func (m *movie) GetMovieByID(id uuid.UUID) (*models.Movie, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to build query: %w", err)
 	}
-	var movie models.Movie
-	err = m.db.QueryRow(sqlQuery, args...).Scan(&movie.ID, &movie.Title, &movie.Description, &movie.ReleaseDate, &movie.Rating)
+	var idRaw uuid.UUID
+	var title, description string
+	var releaseDate time.Time
+	var rating float64
+	err = m.db.QueryRow(sqlQuery, args...).Scan(&idRaw, &title, &description, &releaseDate, &rating)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, nil // Movie not found
+			return nil, nil // Фильм не найден
 		}
 		return nil, fmt.Errorf("failed to get movie: %w", err)
 	}
-	return &movie, nil
+
+	rawData := map[string]interface{}{
+		"id":           idRaw,
+		"title":        title,
+		"description":  description,
+		"release_date": releaseDate,
+		"rating":       rating,
+	}
+
+	return rawData, nil
 }
 
 // Получить фильмы по actor id
-func (m *movie) GetMoviesByActorID(actorID uuid.UUID, limit, offset int) ([]*models.Movie, error) {
+func (m *movie) GetMoviesByActorID(actorID uuid.UUID, limit, offset int) ([]map[string]interface{}, error) {
 	query := sq.
 		Select("m.id", "m.title", "m.description", "m.release_date", "m.rating").
 		From("movies m").
@@ -127,20 +138,31 @@ func (m *movie) GetMoviesByActorID(actorID uuid.UUID, limit, offset int) ([]*mod
 		return nil, fmt.Errorf("failed to get movie by actorID: %w", err)
 	}
 	defer rows.Close()
-	var movies []*models.Movie
+
+	var rawData []map[string]interface{}
 	for rows.Next() {
-		var movie models.Movie
-		if err := rows.Scan(&movie.ID, &movie.Title, &movie.Description, &movie.ReleaseDate, &movie.Rating); err != nil {
+		var id uuid.UUID
+		var title, description string
+		var releaseDate time.Time
+		var rating float64
+		if err := rows.Scan(&id, &title, &description, &releaseDate, &rating); err != nil {
 			return nil, err
 		}
-		movies = append(movies, &movie)
+		movieData := map[string]interface{}{
+			"id":           id,
+			"title":        title,
+			"description":  description,
+			"release_date": releaseDate,
+			"rating":       rating,
+		}
+		rawData = append(rawData, movieData)
 	}
-	return movies, nil
+	return rawData, nil
 }
 
 // Получить фильмы с фильтрацией
-func (m *movie) GetMoviesWithFilters(sortBy string, order string, limit, offset int) ([]*models.Movie, error) {
-	//валидация
+func (m *movie) GetMoviesWithFilters(sortBy string, order string, limit, offset int) ([]map[string]interface{}, error) {
+	// Валидация
 	validSortColumns := map[string]struct{}{
 		"title":        {},
 		"release_date": {},
@@ -156,6 +178,8 @@ func (m *movie) GetMoviesWithFilters(sortBy string, order string, limit, offset 
 	if _, ok := validOrder[order]; !ok {
 		order = "DESC"
 	}
+
+	// Строим SQL запрос
 	query := sq.
 		Select("id", "title", "description", "release_date", "rating").
 		From("movies").
@@ -164,32 +188,47 @@ func (m *movie) GetMoviesWithFilters(sortBy string, order string, limit, offset 
 		Offset(uint64(offset)).
 		PlaceholderFormat(sq.Dollar)
 
+	// Преобразуем запрос в SQL
 	sqlQuery, args, err := query.ToSql()
 	if err != nil {
 		return nil, fmt.Errorf("failed to build query: %w", err)
 	}
 
+	// Выполняем запрос
 	rows, err := m.db.Query(sqlQuery, args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get movies with filtration: %w", err)
 	}
 	defer rows.Close()
 
-	var movies []*models.Movie
+	var rawMovies []map[string]interface{}
+	// Считываем результаты
 	for rows.Next() {
-		var movie models.Movie
-		err := rows.Scan(&movie.ID, &movie.Title, &movie.Description, &movie.ReleaseDate, &movie.Rating)
+		var id uuid.UUID
+		var title, description string
+		var releaseDate time.Time
+		var rating float64
+		err := rows.Scan(&id, &title, &description, &releaseDate, &rating)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to scan row: %w", err)
 		}
-		movies = append(movies, &movie)
+
+		// Добавляем сырые данные в срез
+		rawMovie := map[string]interface{}{
+			"id":           id,
+			"title":        title,
+			"description":  description,
+			"release_date": releaseDate,
+			"rating":       rating,
+		}
+		rawMovies = append(rawMovies, rawMovie)
 	}
-	return movies, nil
+
+	return rawMovies, nil
 }
 
 // Поиск фильмов по названию
-func (m *movie) SearchMoviesByTitle(titleFragment string, limit, offset int) ([]*models.Movie, error) {
-	var movies []*models.Movie
+func (m *movie) SearchMoviesByTitle(titleFragment string, limit, offset int) ([]map[string]interface{}, error) {
 	query := sq.
 		Select("id", "title", "description", "release_date", "rating").
 		From("movies").
@@ -209,19 +248,33 @@ func (m *movie) SearchMoviesByTitle(titleFragment string, limit, offset int) ([]
 	}
 	defer rows.Close()
 
+	var rawMovies []map[string]interface{}
 	for rows.Next() {
-		var movie models.Movie
-		if err := rows.Scan(&movie.ID, &movie.Title, &movie.Description, &movie.ReleaseDate, &movie.Rating); err != nil {
+		var id uuid.UUID
+		var title, description string
+		var releaseDate time.Time
+		var rating float64
+		err := rows.Scan(&id, &title, &description, &releaseDate, &rating)
+		if err != nil {
 			return nil, fmt.Errorf("failed to scan movie: %w", err)
 		}
-		movies = append(movies, &movie)
+
+		// Добавляем сырые данные в срез
+		rawMovie := map[string]interface{}{
+			"id":           id,
+			"title":        title,
+			"description":  description,
+			"release_date": releaseDate,
+			"rating":       rating,
+		}
+		rawMovies = append(rawMovies, rawMovie)
 	}
-	return movies, nil
+
+	return rawMovies, nil
 }
 
 // Поиск фильмов по актеру
-func (m *movie) SearchMoviesByActorName(actorNameFragment string, limit, offset int) ([]*models.Movie, error) {
-	var movies []*models.Movie
+func (m *movie) SearchMoviesByActorName(actorNameFragment string, limit, offset int) ([]map[string]interface{}, error) {
 	query := sq.
 		Select("DISTINCT m.id", "m.title", "m.description", "m.release_date", "m.rating").
 		From("movies m").
@@ -243,15 +296,29 @@ func (m *movie) SearchMoviesByActorName(actorNameFragment string, limit, offset 
 	}
 	defer rows.Close()
 
+	var rawMovies []map[string]interface{}
 	for rows.Next() {
-		var movie models.Movie
-		if err := rows.Scan(&movie.ID, &movie.Title, &movie.Description, &movie.ReleaseDate, &movie.Rating); err != nil {
+		var id uuid.UUID
+		var title, description string
+		var releaseDate time.Time
+		var rating float64
+		err := rows.Scan(&id, &title, &description, &releaseDate, &rating)
+		if err != nil {
 			return nil, fmt.Errorf("failed to scan movie: %w", err)
 		}
-		movies = append(movies, &movie)
+
+		// Добавляем сырые данные в срез
+		rawMovie := map[string]interface{}{
+			"id":           id,
+			"title":        title,
+			"description":  description,
+			"release_date": releaseDate,
+			"rating":       rating,
+		}
+		rawMovies = append(rawMovies, rawMovie)
 	}
 
-	return movies, nil
+	return rawMovies, nil
 }
 
 // Обновить фильм
@@ -297,8 +364,8 @@ func (m *movie) DeleteMovie(id uuid.UUID) error {
 }
 
 // Получение списка фильмов
-func (m *movie) GetAllMovies(limit, offset int) ([]*models.Movie, error) {
-	var movies []*models.Movie
+func (m *movie) GetAllMovies(limit, offset int) ([]map[string]interface{}, error) {
+	var movies []map[string]interface{}
 	query := sq.
 		Select("id", "title", "description", "release_date", "rating").
 		From("movies").
@@ -317,16 +384,31 @@ func (m *movie) GetAllMovies(limit, offset int) ([]*models.Movie, error) {
 	}
 	defer rows.Close()
 
+	// Считываем сырые данные в map
 	for rows.Next() {
-		var movie models.Movie
-		err := rows.Scan(&movie.ID, &movie.Title, &movie.Description, &movie.ReleaseDate, &movie.Rating)
-		if err != nil {
+		// Определяем переменные для каждого поля
+		var id uuid.UUID
+		var title, description string
+		var releaseDate time.Time
+		var rating float64
+
+		// Сканируем строки в переменные
+		if err := rows.Scan(&id, &title, &description, &releaseDate, &rating); err != nil {
 			return nil, fmt.Errorf("failed to scan movie: %w", err)
 		}
-		movies = append(movies, &movie)
+
+		// Добавляем в map, чтобы передать в сервис
+		movie := map[string]interface{}{
+			"id":           id,
+			"title":        title,
+			"description":  description,
+			"release_date": releaseDate,
+			"rating":       rating,
+		}
+
+		movies = append(movies, movie)
 	}
 
-	// Проверяем наличие ошибок при итерации по строкам
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("error occurred while iterating rows: %w", err)
 	}

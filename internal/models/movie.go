@@ -1,6 +1,7 @@
 package models
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -26,4 +27,24 @@ type UpdateMovie struct {
 	Description *string    `json:"description"`
 	ReleaseDate *time.Time `json:"release_date"`
 	Rating      *float64   `json:"rating"`
+}
+
+// Валидация данных фильма
+func (m *CreateMovie) Validate() error {
+	if m.Title == "" {
+		return fmt.Errorf("title cannot be empty")
+	}
+	if len(m.Title) > 150 {
+		return fmt.Errorf("title must be less than 150 characters")
+	}
+	if m.Description != "" && len(m.Description) > 1000 {
+		return fmt.Errorf("description must be less than 1000 characters")
+	}
+	if m.ReleaseDate.IsZero() {
+		return fmt.Errorf("release date is required")
+	}
+	if m.Rating < 0 || m.Rating > 10 {
+		return fmt.Errorf("rating must be between 0 and 10")
+	}
+	return nil
 }

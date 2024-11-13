@@ -1,10 +1,11 @@
 package main
 
 import (
-	"cinema/internal/controller"
+	//"cinema/internal/controller"
 	"cinema/internal/postgres"
 	"cinema/internal/repository"
 	"cinema/internal/service"
+	"fmt"
 	"log"
 
 	_ "github.com/lib/pq"
@@ -17,11 +18,16 @@ func Run() error {
 	}
 	defer db.Close()
 
-	movieStore := repository.NewMovie(db)
+	// movieStore := repository.NewMovie(db)
 	actorStore := repository.NewActor(db)
-	movieService := service.NewMovie(movieStore)
+
+	// movieService := service.NewMovie(movieStore)
 	actorService := service.NewActor(actorStore)
-	cinemaController := controller.NewCinema(movieService, actorService)
+	actors, nil := actorService.GetActorsWithMovies(5, 1)
+	for _, actor := range actors {
+		fmt.Println(actor.Name)
+	}
+	// cinemaController := controller.NewCinema(movieService, actorService)
 	//cinemaController.AddMovie() GIT TEST
 	return nil
 }
