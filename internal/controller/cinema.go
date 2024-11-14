@@ -71,8 +71,8 @@ func (c *Cinema) AddActor(ctx *gin.Context) {
 
 // Получение актера по ID
 func (c *Cinema) GetActor(ctx *gin.Context) {
-	idParam := ctx.Query("id")
-	actorID, err := uuid.Parse(idParam)
+	actorIDStr := ctx.Param("id")
+	actorID, err := uuid.Parse(actorIDStr)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid actor ID"})
 		return
@@ -91,8 +91,8 @@ func (c *Cinema) GetActor(ctx *gin.Context) {
 
 // Обновление актера
 func (c *Cinema) UpdateActor(ctx *gin.Context) {
-	idParam := ctx.Query("id")
-	actorID, err := uuid.Parse(idParam)
+	actorIDStr := ctx.Param("id")
+	actorID, err := uuid.Parse(actorIDStr)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid actor ID"})
 		return
@@ -119,8 +119,8 @@ func (c *Cinema) UpdateActor(ctx *gin.Context) {
 
 // Удаление актера
 func (c *Cinema) DeleteActor(ctx *gin.Context) {
-	idParam := ctx.Query("id")
-	actorID, err := uuid.Parse(idParam)
+	actorIDStr := ctx.Param("id")
+	actorID, err := uuid.Parse(actorIDStr)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid actor ID"})
 		return
@@ -226,15 +226,15 @@ func (c *Cinema) RemoveMovieActorRelation(ctx *gin.Context) {
 // Получить фильм по ID
 func (c *Cinema) GetMovieByID(ctx *gin.Context) {
 	// Получаем параметр id из URL
-	idStr := ctx.DefaultQuery("id", "")
-	id, err := uuid.Parse(idStr)
+	movieIDStr := ctx.Param("id")
+	movieID, err := uuid.Parse(movieIDStr)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid movie ID"})
 		return
 	}
 
 	// Получаем фильм по ID
-	movie, err := c.movie.GetMovieByID(id)
+	movie, err := c.movie.GetMovieByID(movieID)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -342,8 +342,8 @@ func (c *Cinema) SearchMoviesByActorName(ctx *gin.Context) {
 
 // Обновить фильм
 func (c *Cinema) UpdateMovie(ctx *gin.Context) {
-	idStr := ctx.DefaultQuery("id", "")
-	id, err := uuid.Parse(idStr)
+	movieIDStr := ctx.Param("id")
+	movieID, err := uuid.Parse(movieIDStr)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid movie ID"})
 		return
@@ -356,7 +356,7 @@ func (c *Cinema) UpdateMovie(ctx *gin.Context) {
 		return
 	}
 
-	if err := c.movie.UpdateMovie(id, updatedMovie); err != nil {
+	if err := c.movie.UpdateMovie(movieID, updatedMovie); err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -367,44 +367,34 @@ func (c *Cinema) UpdateMovie(ctx *gin.Context) {
 
 // Удалить фильм по ID
 func (c *Cinema) DeleteMovie(ctx *gin.Context) {
-	// Получаем ID фильма из параметров запроса
-	idStr := ctx.DefaultQuery("id", "")
-	id, err := uuid.Parse(idStr)
+	movieIDStr := ctx.Param("id")
+	movieID, err := uuid.Parse(movieIDStr)
 	if err != nil {
-		// Если ID фильма некорректен, возвращаем ошибку 400
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid movie ID"})
 		return
 	}
 
-	// Удаляем фильм
-	if err := c.movie.DeleteMovie(id); err != nil {
-		// Если произошла ошибка при удалении фильма, возвращаем ошибку 500
+	if err := c.movie.DeleteMovie(movieID); err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	// Возвращаем статус 204 (No Content), так как удаление прошло успешно
 	ctx.Status(http.StatusNoContent)
 }
 
 // Получить все фильмы
 func (c *Cinema) GetAllMovies(ctx *gin.Context) {
-	// Получаем лимит и смещение из параметров запроса
 	limit, offset, err := parseLimitOffset(ctx)
 	if err != nil {
-		// Если есть ошибка с лимитом или смещением, возвращаем ошибку 400
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	// Получаем все фильмы с пагинацией
 	movies, err := c.movie.GetAllMovies(limit, offset)
 	if err != nil {
-		// Если произошла ошибка при получении фильмов, возвращаем ошибку 500
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	// Возвращаем фильмы в формате JSON
 	ctx.JSON(http.StatusOK, movies)
 }
