@@ -2,7 +2,6 @@ package service
 
 import (
 	"cinema/internal/models"
-	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -31,22 +30,8 @@ func NewMovie(store storeMovie) *movie {
 }
 
 // Добавление фильма
-func (s *movie) AddMovie(rawData map[string]interface{}) (uuid.UUID, error) {
-	// Сначала маппим rawData в структуру CreateMovie
-	createMovie := models.CreateMovie{
-		Title:       rawData["title"].(string),
-		Description: rawData["description"].(string),
-		ReleaseDate: rawData["release_date"].(time.Time),
-		Rating:      rawData["rating"].(float64),
-	}
-
-	// Валидация данных перед добавлением
-	if err := createMovie.Validate(); err != nil {
-		return uuid.Nil, fmt.Errorf("validation failed: %w", err)
-	}
-
-	// Передаем данные в репозиторий для добавления
-	return s.store.AddMovie(createMovie)
+func (s *movie) AddMovie(movie models.CreateMovie) (uuid.UUID, error) {
+	return s.store.AddMovie(movie)
 }
 
 // Добавление отношения между актером и фильмом

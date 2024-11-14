@@ -1,34 +1,40 @@
 package main
 
 import (
-	//"cinema/internal/controller"
+	"cinema/internal/controller"
 	"cinema/internal/postgres"
 	"cinema/internal/repository"
+	"cinema/internal/routes"
 	"cinema/internal/service"
-	"fmt"
 	"log"
 
+	"github.com/gin-gonic/gin"
 	_ "github.com/lib/pq"
 )
 
 func Run() error {
+	r := gin.Default()
+	// Подключение к базе данных
 	db, err := postgres.ConnectDB()
 	if err != nil {
 		return err
 	}
 	defer db.Close()
 
-	// movieStore := repository.NewMovie(db)
+	// Инициализация слоев репозиториев и сервисов
+	movieStore := repository.NewMovie(db)
 	actorStore := repository.NewActor(db)
 
-	// movieService := service.NewMovie(movieStore)
+	movieService := service.NewMovie(movieStore)
 	actorService := service.NewActor(actorStore)
-	actors, nil := actorService.GetActorsWithMovies(5, 1)
-	for _, actor := range actors {
-		fmt.Println(actor.Name)
-	}
-	// cinemaController := controller.NewCinema(movieService, actorService)
-	//cinemaController.AddMovie() GIT TEST
+
+	// Создание контроллера для работы с фильмами и актерами
+	cinemaController := controller.NewCinema(movieService, actorService)
+
+	// Настройка маршрутов
+	routes.SetupRoutes(r, cinemaController)
+
+	r.Run(":8080")
 	return nil
 }
 
