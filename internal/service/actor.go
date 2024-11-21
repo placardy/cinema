@@ -83,7 +83,7 @@ func (a *actor) GetAllActors(limit, offset int) ([]*models.Actor, error) {
 }
 
 // Получение актеров с фильмами с пагинацией
-func (a *actor) GetActorsWithMovies(limit, offset int) ([]*models.Actor, error) {
+func (a *actor) GetActorsWithMovies(limit, offset int) ([]*models.ActorWithMovies, error) {
 	// Получаем данные из репозитория
 	data, err := a.store.GetActorsWithMovies(limit, offset)
 	if err != nil {
@@ -91,52 +91,51 @@ func (a *actor) GetActorsWithMovies(limit, offset int) ([]*models.Actor, error) 
 	}
 
 	// Маппинг из данных в структуры
-	var actors []*models.Actor
-	actorsMap := make(map[uuid.UUID]*models.Actor)
+	var actors []*models.ActorWithMovies
+	actorsMap := make(map[uuid.UUID]*models.ActorWithMovies)
 
 	for _, row := range data {
-		// Получаем данные актера и фильма
+		// Получаем данные актера
 		actorID := row["actor_id"].(uuid.UUID)
 		actorName := row["actor_name"].(string)
 		actorGender := row["actor_gender"].(string)
 		actorBirthDate := row["actor_birth_date"].(time.Time)
 
-		movieID, _ := row["movie_id"].(*uuid.UUID)
-		movieTitle, _ := row["movie_title"].(*string)
-		movieDesc, _ := row["movie_description"].(*string)
-		movieRelease, _ := row["movie_release_date"].(*time.Time)
-		movieRating, _ := row["movie_rating"].(*float64)
+		// Получаем данные фильма
+		movieID, _ := row["movie_id"].(uuid.UUID) // Используем (uuid.UUID), чтобы избежать ошибок с *uuid.UUID
+		movieTitle, _ := row["movie_title"].(string)
+		movieDesc, _ := row["movie_description"].(string)
+		movieRelease, _ := row["movie_release_date"].(time.Time)
+		movieRating, _ := row["movie_rating"].(float64)
 
 		// Проверяем, существует ли актер в мапе
 		if actor, exists := actorsMap[actorID]; exists {
 			// Если фильм существует, добавляем его к актеру
-			if movieID != nil {
-				actor.Movies = append(actor.Movies, models.Movie{
-					ID:          *movieID,
-					Title:       *movieTitle,
-					Description: *movieDesc,
-					ReleaseDate: *movieRelease,
-					Rating:      *movieRating,
-				})
-			}
+			actor.Movies = append(actor.Movies, models.Movie{
+				ID:          movieID,
+				Title:       movieTitle,
+				Description: movieDesc,
+				ReleaseDate: movieRelease,
+				Rating:      movieRating,
+			})
 		} else {
-			// Если актера еще нет, создаем его
-			newActor := &models.Actor{
-				ID:          actorID,
-				Name:        actorName,
-				Gender:      actorGender,
-				DateOfBirth: actorBirthDate,
-				Movies:      []models.Movie{},
-			}
-			// Добавляем фильм, если он существует
-			if movieID != nil {
-				newActor.Movies = append(newActor.Movies, models.Movie{
-					ID:          *movieID,
-					Title:       *movieTitle,
-					Description: *movieDesc,
-					ReleaseDate: *movieRelease,
-					Rating:      *movieRating,
-				})
+			// Если актера еще нет, создаем его и добавляем фильм
+			newActor := &models.ActorWithMovies{
+				Actor: models.Actor{
+					ID:          actorID,
+					Name:        actorName,
+					Gender:      actorGender,
+					DateOfBirth: actorBirthDate,
+				},
+				Movies: []models.Movie{
+					{
+						ID:          movieID,
+						Title:       movieTitle,
+						Description: movieDesc,
+						ReleaseDate: movieRelease,
+						Rating:      movieRating,
+					},
+				},
 			}
 			// Добавляем актера в мапу и в срез
 			actorsMap[actorID] = newActor

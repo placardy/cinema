@@ -198,9 +198,6 @@ func (a *actor) GetActorsWithMovies(limit, offset int) ([]map[string]interface{}
 	// Срез для хранения актеров в порядке их получения
 	var result []map[string]interface{}
 
-	// Создаем мапу для отслеживания добавленных актеров
-	// actorsMap := make(map[uuid.UUID]*models.Actor)
-
 	for rows.Next() {
 		var (
 			actorID        uuid.UUID

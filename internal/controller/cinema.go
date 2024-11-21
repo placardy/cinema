@@ -10,6 +10,23 @@ import (
 	"github.com/google/uuid"
 )
 
+type serviceMovie interface {
+	// связи (добавить, обновить, удалить)
+	AddMovieActorRelations(movieID uuid.UUID, actorIDs []uuid.UUID) error
+	RemoveSelectedMovieActorRelations(movieID uuid.UUID, actorIDs []uuid.UUID) error
+	UpdateMovieActorRealations(movieID uuid.UUID, actorIDs []uuid.UUID) error
+	// фильмы
+	AddMovie(movie models.CreateMovie) (uuid.UUID, error)
+	GetMovieByID(id uuid.UUID) (*models.Movie, error)
+	GetMoviesByActorID(actorID uuid.UUID, limit, offset int) ([]*models.Movie, error)
+	GetMoviesWithFilters(sortBy string, order string, limit, offset int) ([]*models.Movie, error)
+	SearchMoviesByTitle(titleFragment string, limit, offset int) ([]*models.Movie, error)
+	SearchMoviesByActorName(actorNameFragment string, limit, offset int) ([]*models.Movie, error)
+	SearchMoviesByTitleAndActor(filterTitle, filterActor string, limit, offset int) ([]*models.Movie, error)
+	UpdateMovie(id uuid.UUID, movie models.UpdateMovie) error
+	DeleteMovie(id uuid.UUID) error
+}
+
 type serviceActor interface {
 	AddActor(actor models.CreateActor) (uuid.UUID, error)
 	GetActor(id uuid.UUID) (*models.Actor, error)
@@ -17,20 +34,6 @@ type serviceActor interface {
 	DeleteActor(id uuid.UUID) error
 	GetAllActors(limit, offset int) ([]*models.Actor, error)
 	GetActorsWithMovies(limit, offset int) ([]*models.Actor, error)
-}
-
-type serviceMovie interface {
-	AddMovie(movie models.CreateMovie) (uuid.UUID, error)
-	AddMovieActorRelation(actorID, movieID uuid.UUID) error
-	RemoveMovieActorRelation(actorID, movieID uuid.UUID) error
-	GetMovieByID(id uuid.UUID) (*models.Movie, error)
-	GetMoviesByActorID(actorID uuid.UUID, limit, offset int) ([]*models.Movie, error)
-	GetMoviesWithFilters(sortBy string, order string, limit, offset int) ([]*models.Movie, error)
-	SearchMoviesByTitle(titleFragment string, limit, offset int) ([]*models.Movie, error)
-	SearchMoviesByActorName(actorNameFragment string, limit, offset int) ([]*models.Movie, error)
-	UpdateMovie(id uuid.UUID, movie models.UpdateMovie) error
-	DeleteMovie(id uuid.UUID) error
-	GetAllMovies(limit, offset int) ([]*models.Movie, error)
 }
 
 type Cinema struct {
@@ -54,6 +57,124 @@ func parseLimitOffset(ctx *gin.Context) (int, int, error) {
 	return limit, offset, nil
 }
 
+// Добавить связь между актером и фильмом
+func (c *Cinema) AddMovieActorRelations(ctx *gin.Context) {
+	var relation struct {
+		MovieID  uuid.UUID   `json:"movie_id"`
+		ActorIDs []uuid.UUID `json:"actor_ids"`
+	}
+
+	if err := ctx.ShouldBindJSON(&relation); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		return
+	}
+
+	if err := c.movie.AddMovieActorRelations(relation.MovieID, relation.ActorIDs); err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.Status(http.StatusNoContent)
+}
+
+// Удалить связь между актером и фильмом
+func (c *Cinema) RemoveSelectedMovieActorRelations(ctx *gin.Context) {
+	var relation struct {
+		MovieID  uuid.UUID   `json:"movie_id"`
+		ActorIDs []uuid.UUID `json:"actor_ids"`
+	}
+
+	if err := ctx.ShouldBindJSON(&relation); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		return
+	}
+
+	if err := c.movie.RemoveSelectedMovieActorRelations(relation.MovieID, relation.ActorIDs); err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.Status(http.StatusNoContent)
+}
+
+// Удалить связь между актером и фильмом
+func (c *Cinema) UpdateMovieActorsRelations(ctx *gin.Context) {
+	var relation struct {
+		MovieID  uuid.UUID   `json:"movie_id"`
+		ActorIDs []uuid.UUID `json:"actor_ids"`
+	}
+
+	if err := ctx.ShouldBindJSON(&relation); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		return
+	}
+
+	if err := c.movie.UpdateMovieActorRealations(relation.MovieID, relation.ActorIDs); err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.Status(http.StatusNoContent)
+}
+
+// Добавить фильм
+func (c *Cinema) AddMovie(ctx *gin.Context) {
+	var newMovie models.CreateMovie
+
+	if err := ctx.ShouldBindJSON(&newMovie); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		return
+	}
+
+	validationErrors := newMovie.Validate()
+	if len(validationErrors) > 0 {
+		ctx.JSON(http.StatusBadRequest, gin.H{"errors": validationErrors})
+		return
+	}
+
+	id, err := c.movie.AddMovie(newMovie)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusCreated, gin.H{"id": id})
+}
+
+// Обновить фильм
+func (c *Cinema) UpdateMovie(ctx *gin.Context) {
+	movieIDStr := ctx.Param("id")
+	movieID, err := uuid.Parse(movieIDStr)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid movie ID"})
+		return
+	}
+
+	var updatedMovie models.UpdateMovie
+	if err := ctx.ShouldBindJSON(&updatedMovie); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		return
+	}
+
+	validationErrors := updatedMovie.Validate()
+	if len(validationErrors) > 0 {
+		ctx.JSON(http.StatusBadRequest, gin.H{"errors": validationErrors})
+		return
+	}
+
+	if err := c.movie.UpdateMovie(movieID, updatedMovie); err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.Status(http.StatusNoContent)
+}
+
+//добавить выбранные связи
+//удалить выбранные связи
+
+
+
 // Добавление актера
 func (c *Cinema) AddActor(ctx *gin.Context) {
 	var newActor models.CreateActor
@@ -61,12 +182,63 @@ func (c *Cinema) AddActor(ctx *gin.Context) {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"}) // status 400
 		return
 	}
+
+	validationErrors := newActor.Validate()
+	if len(validationErrors) > 0 {
+		ctx.JSON(http.StatusBadRequest, gin.H{"errors": validationErrors}) // status 400
+		return
+	}
+
 	actorID, err := c.actor.AddActor(newActor)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()}) // status 500
 		return
 	}
 	ctx.JSON(http.StatusCreated, gin.H{"actor_id": actorID}) // status 200
+}
+
+// Обновление актера
+func (c *Cinema) UpdateActor(ctx *gin.Context) {
+	actorIDStr := ctx.Param("id")
+	actorID, err := uuid.Parse(actorIDStr)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid actor ID"})
+		return
+	}
+
+	var updateActor models.UpdateActor
+	if err := ctx.ShouldBindJSON(&updateActor); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		return
+	}
+
+	validationErrors := updateActor.Validate()
+	if len(validationErrors) > 0 {
+		ctx.JSON(http.StatusBadRequest, gin.H{"errors": validationErrors})
+		return
+	}
+
+	if err := c.actor.UpdateActor(actorID, updateActor); err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.Status(http.StatusNoContent)
+}
+
+// Удаление актера
+func (c *Cinema) DeleteActor(ctx *gin.Context) {
+	actorIDStr := ctx.Param("id")
+	actorID, err := uuid.Parse(actorIDStr)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid actor ID"})
+		return
+	}
+	if err := c.actor.DeleteActor(actorID); err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	ctx.Status(http.StatusNoContent)
 }
 
 // Получение актера по ID
@@ -87,49 +259,6 @@ func (c *Cinema) GetActor(ctx *gin.Context) {
 		return
 	}
 	ctx.JSON(http.StatusOK, actor)
-}
-
-// Обновление актера
-func (c *Cinema) UpdateActor(ctx *gin.Context) {
-	actorIDStr := ctx.Param("id")
-	actorID, err := uuid.Parse(actorIDStr)
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid actor ID"})
-		return
-	}
-
-	// Декодируем JSON из тела запроса в структуру UpdateActor
-	var updateActor models.UpdateActor
-	if err := ctx.ShouldBindJSON(&updateActor); err != nil {
-		// Если тело запроса недействительно, возвращаем статус 400
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
-		return
-	}
-
-	// Вызываем метод обновления актера
-	if err := c.actor.UpdateActor(actorID, updateActor); err != nil {
-		// Если произошла ошибка при обновлении актера, возвращаем статус 500
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	// Успешный ответ, статус 204 без содержимого
-	ctx.Status(http.StatusNoContent)
-}
-
-// Удаление актера
-func (c *Cinema) DeleteActor(ctx *gin.Context) {
-	actorIDStr := ctx.Param("id")
-	actorID, err := uuid.Parse(actorIDStr)
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid actor ID"})
-		return
-	}
-	if err := c.actor.DeleteActor(actorID); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-	ctx.Status(http.StatusNoContent)
 }
 
 // Получение всех актеров с пагинацией
@@ -163,64 +292,6 @@ func (c *Cinema) GetActorsWithMovies(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, actors)
-}
-
-// Добавить фильм
-func (c *Cinema) AddMovie(ctx *gin.Context) {
-	var newMovie models.CreateMovie
-
-	if err := ctx.ShouldBindJSON(&newMovie); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
-		return
-	}
-
-	id, err := c.movie.AddMovie(newMovie)
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	ctx.JSON(http.StatusCreated, gin.H{"id": id})
-}
-
-// Добавить связь между актером и фильмом
-func (c *Cinema) AddMovieActorRelation(ctx *gin.Context) {
-	var relation struct {
-		ActorID uuid.UUID `json:"actor_id"`
-		MovieID uuid.UUID `json:"movie_id"`
-	}
-
-	if err := ctx.ShouldBindJSON(&relation); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
-		return
-	}
-
-	if err := c.movie.AddMovieActorRelation(relation.ActorID, relation.MovieID); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	ctx.Status(http.StatusNoContent)
-}
-
-// Удалить связь между актером и фильмом
-func (c *Cinema) RemoveMovieActorRelation(ctx *gin.Context) {
-	var relation struct {
-		ActorID uuid.UUID `json:"actor_id"`
-		MovieID uuid.UUID `json:"movie_id"`
-	}
-
-	if err := ctx.ShouldBindJSON(&relation); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
-		return
-	}
-
-	if err := c.movie.RemoveMovieActorRelation(relation.ActorID, relation.MovieID); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	ctx.Status(http.StatusNoContent)
 }
 
 // Получить фильм по ID
@@ -297,9 +368,10 @@ func (c *Cinema) GetMoviesWithFilters(ctx *gin.Context) {
 }
 
 // Поиск фильмов по названию
-func (c *Cinema) SearchMoviesByTitle(ctx *gin.Context) {
+func (c *Cinema) SearchMoviesByTitleAndActor(ctx *gin.Context) {
 	// Получаем фрагмент названия фильма из параметров запроса
 	titleFragment := ctx.DefaultQuery("title", "")
+	actorNameFragment := ctx.DefaultQuery("actor_name", "")
 
 	// Получаем лимит и смещение из запроса
 	limit, offset, err := parseLimitOffset(ctx)
@@ -310,7 +382,7 @@ func (c *Cinema) SearchMoviesByTitle(ctx *gin.Context) {
 	}
 
 	// Получаем фильмы, которые соответствуют фрагменту названия
-	movies, err := c.movie.SearchMoviesByTitle(titleFragment, limit, offset)
+	movies, err := c.movie.SearchMoviesByTitleAndActor(titleFragment, actorNameFragment, limit, offset)
 	if err != nil {
 		// Если произошла ошибка при поиске фильмов, возвращаем ошибку
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -319,50 +391,6 @@ func (c *Cinema) SearchMoviesByTitle(ctx *gin.Context) {
 
 	// Возвращаем найденные фильмы в формате JSON
 	ctx.JSON(http.StatusOK, movies)
-}
-
-// Поиск фильмов по актеру
-func (c *Cinema) SearchMoviesByActorName(ctx *gin.Context) {
-	actorNameFragment := ctx.DefaultQuery("actor_name", "")
-
-	limit, offset, err := parseLimitOffset(ctx)
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	movies, err := c.movie.SearchMoviesByActorName(actorNameFragment, limit, offset)
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	ctx.JSON(http.StatusOK, movies)
-}
-
-// Обновить фильм
-func (c *Cinema) UpdateMovie(ctx *gin.Context) {
-	movieIDStr := ctx.Param("id")
-	movieID, err := uuid.Parse(movieIDStr)
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid movie ID"})
-		return
-	}
-
-	// Декодируем тело запроса в структуру updatedMovie
-	var updatedMovie models.UpdateMovie
-	if err := ctx.ShouldBindJSON(&updatedMovie); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
-		return
-	}
-
-	if err := c.movie.UpdateMovie(movieID, updatedMovie); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	// Возвращаем статус 204 (No Content), так как обновление прошло успешно
-	ctx.Status(http.StatusNoContent)
 }
 
 // Удалить фильм по ID
@@ -380,21 +408,4 @@ func (c *Cinema) DeleteMovie(ctx *gin.Context) {
 	}
 
 	ctx.Status(http.StatusNoContent)
-}
-
-// Получить все фильмы
-func (c *Cinema) GetAllMovies(ctx *gin.Context) {
-	limit, offset, err := parseLimitOffset(ctx)
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	movies, err := c.movie.GetAllMovies(limit, offset)
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	ctx.JSON(http.StatusOK, movies)
 }
