@@ -140,7 +140,7 @@ func (m *movie) AddMovieActorRelations(movieID uuid.UUID, actorIDs []uuid.UUID) 
 	})
 }
 
-func (m *movie) UpdateMovieActorsRealations(movieID uuid.UUID, actorIDs []uuid.UUID) error {
+func (m *movie) UpdateMovieActorRealations(movieID uuid.UUID, actorIDs []uuid.UUID) error {
 	// Проверка существования фильма
 	err := m.ValidateMovieID(movieID)
 	if err != nil {

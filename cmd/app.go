@@ -19,7 +19,12 @@ func Run() error {
 	if err != nil {
 		return err
 	}
-	defer db.Close()
+
+	defer func() {
+		if err := db.Close(); err != nil {
+			log.Printf("Error closing database connection: %v", err)
+		}
+	}()
 
 	// Инициализация слоев репозиториев и сервисов
 	movieStore := repository.NewMovie(db)

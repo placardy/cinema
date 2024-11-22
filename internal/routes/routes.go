@@ -33,7 +33,7 @@ func SetupRoutes(router *gin.Engine, cinemaController *controller.Cinema) {
 
 		relationGroup.POST("/add", cinemaController.AddMovieActorRelations)                 // Добавить связи
 		relationGroup.DELETE("/delete", cinemaController.RemoveSelectedMovieActorRelations) // Удалить связи
-		relationGroup.PUT("update", cinemaController.UpdateMovieActorsRelations)            // Обновить связи
+		relationGroup.PUT("update", cinemaController.UpdateMovieActorRelations)             // Обновить связи
 	}
 
 	// Административные маршруты
@@ -41,12 +41,12 @@ func SetupRoutes(router *gin.Engine, cinemaController *controller.Cinema) {
 	{
 		adminGroup.Use(middleware.JWTAuthMiddleware(), middleware.RoleMiddleware([]string{"admin"}))
 
-		adminGroup.POST("/movies", cinemaController.AddMovie)    // Добавить фильм (admin)
-		adminGroup.POST("/movies", cinemaController.UpdateMovie) // Обновить фильм (admin)
-		adminGroup.POST("/movies", cinemaController.DeleteMovie) // Удалить фильм (admin)
+		adminGroup.POST("/movies", cinemaController.AddMovie)          // Добавить фильм (admin)
+		adminGroup.PUT("/movies:id", cinemaController.UpdateMovie)     // Обновить фильм (admin)
+		adminGroup.DELETE("/movies/:id", cinemaController.DeleteMovie) // Удалить фильм (admin)
 
 		adminGroup.POST("/actors", cinemaController.AddActor)          // Добавить актера (admin)
-		adminGroup.PUT("/actors/:id", cinemaController.UpdateActor)    // Обновить актера (admin)
+		adminGroup.PUT("/actors:id", cinemaController.UpdateActor)     // Обновить актера (admin)
 		adminGroup.DELETE("/actors/:id", cinemaController.DeleteActor) // Удалить актера (admin)
 	}
 }

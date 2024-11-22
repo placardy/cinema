@@ -11,7 +11,7 @@ import (
 )
 
 type serviceMovie interface {
-	// связи (добавить, обновить, удалить)
+	// связи
 	AddMovieActorRelations(movieID uuid.UUID, actorIDs []uuid.UUID) error
 	RemoveSelectedMovieActorRelations(movieID uuid.UUID, actorIDs []uuid.UUID) error
 	UpdateMovieActorRealations(movieID uuid.UUID, actorIDs []uuid.UUID) error
@@ -20,8 +20,6 @@ type serviceMovie interface {
 	GetMovieByID(id uuid.UUID) (*models.Movie, error)
 	GetMoviesByActorID(actorID uuid.UUID, limit, offset int) ([]*models.Movie, error)
 	GetMoviesWithFilters(sortBy string, order string, limit, offset int) ([]*models.Movie, error)
-	SearchMoviesByTitle(titleFragment string, limit, offset int) ([]*models.Movie, error)
-	SearchMoviesByActorName(actorNameFragment string, limit, offset int) ([]*models.Movie, error)
 	SearchMoviesByTitleAndActor(filterTitle, filterActor string, limit, offset int) ([]*models.Movie, error)
 	UpdateMovie(id uuid.UUID, movie models.UpdateMovie) error
 	DeleteMovie(id uuid.UUID) error
@@ -33,7 +31,7 @@ type serviceActor interface {
 	UpdateActor(id uuid.UUID, actor models.UpdateActor) error
 	DeleteActor(id uuid.UUID) error
 	GetAllActors(limit, offset int) ([]*models.Actor, error)
-	GetActorsWithMovies(limit, offset int) ([]*models.Actor, error)
+	GetActorsWithMovies(limit, offset int) ([]*models.ActorWithMovies, error)
 }
 
 type Cinema struct {
@@ -98,7 +96,7 @@ func (c *Cinema) RemoveSelectedMovieActorRelations(ctx *gin.Context) {
 }
 
 // Удалить связь между актером и фильмом
-func (c *Cinema) UpdateMovieActorsRelations(ctx *gin.Context) {
+func (c *Cinema) UpdateMovieActorRelations(ctx *gin.Context) {
 	var relation struct {
 		MovieID  uuid.UUID   `json:"movie_id"`
 		ActorIDs []uuid.UUID `json:"actor_ids"`
@@ -172,8 +170,6 @@ func (c *Cinema) UpdateMovie(ctx *gin.Context) {
 
 //добавить выбранные связи
 //удалить выбранные связи
-
-
 
 // Добавление актера
 func (c *Cinema) AddActor(ctx *gin.Context) {
