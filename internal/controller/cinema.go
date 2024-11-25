@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -167,9 +168,6 @@ func (c *Cinema) UpdateMovie(ctx *gin.Context) {
 
 	ctx.Status(http.StatusNoContent)
 }
-
-//добавить выбранные связи
-//удалить выбранные связи
 
 // Добавление актера
 func (c *Cinema) AddActor(ctx *gin.Context) {
@@ -343,8 +341,26 @@ func (c *Cinema) GetMoviesByActorID(ctx *gin.Context) {
 
 // Получить фильмы с фильтрацией
 func (c *Cinema) GetMoviesWithFilters(ctx *gin.Context) {
-	sortBy := ctx.DefaultQuery("sortBy", "")
-	order := ctx.DefaultQuery("order", "")
+	sortBy := ctx.DefaultQuery("sortBy", "rating")
+	order := ctx.DefaultQuery("order", "DESC")
+	// Валидация
+	validSortColumns := map[string]struct{}{
+		"title":        {},
+		"release_date": {},
+		"rating":       {},
+	}
+	validOrder := map[string]struct{}{
+		"ASC":  {},
+		"DESC": {},
+	}
+	if _, ok := validSortColumns[sortBy]; !ok {
+		sortBy = "rating"
+	}
+	if _, ok := validOrder[order]; !ok {
+		order = "DESC"
+	}
+	sortBy = strings.ToLower(ctx.DefaultQuery("sortBy", "rating"))
+	order = strings.ToUpper(ctx.DefaultQuery("order", "DESC"))
 
 	limit, offset, err := parseLimitOffset(ctx)
 	if err != nil {

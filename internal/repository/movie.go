@@ -54,7 +54,7 @@ func (m *movie) AddMovie(tx *sql.Tx, movie models.CreateMovie) (uuid.UUID, error
 
 // Функция для проверки, существует ли актер по id
 func (m *movie) CheckActorExists(actorID uuid.UUID) (bool, error) {
-	query := sq.Select("EXISTS (SELECT 1 FROM actors WHERE id = ?)").
+	query := sq.Select("EXISTS (SELECT 1 FROM actors WHERE id = $1)").
 		PlaceholderFormat(sq.Dollar).
 		From("actors").
 		Where(sq.Eq{"id": actorID})
@@ -78,7 +78,7 @@ func (m *movie) CheckActorExists(actorID uuid.UUID) (bool, error) {
 // Функция для проверки, существует ли фильм по id
 func (m *movie) CheckMovieExists(movieID uuid.UUID) (bool, error) {
 	query := sq.
-		Select("EXISTS (SELECT 1 FROM movies WHERE id = ?)").
+		Select("EXISTS (SELECT 1 FROM movies WHERE id = $1)").
 		PlaceholderFormat(sq.Dollar).
 		From("movies").
 		Where(sq.Eq{"id": movieID})
@@ -247,21 +247,21 @@ func (m *movie) GetMoviesByActorID(actorID uuid.UUID, limit, offset int) ([]map[
 // Получить фильмы с фильтрацией
 func (m *movie) GetMoviesWithFilters(sortBy string, order string, limit, offset int) ([]map[string]interface{}, error) {
 	// Валидация
-	validSortColumns := map[string]struct{}{
-		"title":        {},
-		"release_date": {},
-		"rating":       {},
-	}
-	validOrder := map[string]struct{}{
-		"ASC":  {},
-		"DESC": {},
-	}
-	if _, ok := validSortColumns[sortBy]; !ok {
-		sortBy = "rating"
-	}
-	if _, ok := validOrder[order]; !ok {
-		order = "DESC"
-	}
+	// validSortColumns := map[string]struct{}{
+	// 	"title":        {},
+	// 	"release_date": {},
+	// 	"rating":       {},
+	// }
+	// validOrder := map[string]struct{}{
+	// 	"ASC":  {},
+	// 	"DESC": {},
+	// }
+	// if _, ok := validSortColumns[sortBy]; !ok {
+	// 	sortBy = "rating"
+	// }
+	// if _, ok := validOrder[order]; !ok {
+	// 	order = "DESC"
+	// }
 
 	// Строим SQL запрос
 	query := sq.
@@ -323,10 +323,10 @@ func (m *movie) SearchMoviesByTitleAndActor(filterTitle, filterActor string, lim
 
 	// Добавляем условия только при наличии фильтров
 	if filterTitle != "" {
-		query = query.Where(sq.Like{"m.title": fmt.Sprintf("%%%s%%", filterTitle)})
+		query = query.Where(sq.ILike{"m.title": fmt.Sprintf("%%%s%%", filterTitle)})
 	}
 	if filterActor != "" {
-		query = query.Where(sq.Like{"a.name": fmt.Sprintf("%%%s%%", filterActor)})
+		query = query.Where(sq.ILike{"a.name": fmt.Sprintf("%%%s%%", filterActor)})
 	}
 
 	// Конвертация в SQL

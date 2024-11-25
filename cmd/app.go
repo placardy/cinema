@@ -4,6 +4,7 @@ import (
 	"cinema/internal/controller"
 	"cinema/internal/postgres"
 	"cinema/internal/repository"
+
 	"cinema/internal/routes"
 	"cinema/internal/service"
 	"log"
@@ -29,7 +30,6 @@ func Run() error {
 	// Инициализация слоев репозиториев и сервисов
 	movieStore := repository.NewMovie(db)
 	actorStore := repository.NewActor(db)
-
 	movieService := service.NewMovie(movieStore)
 	actorService := service.NewActor(actorStore)
 

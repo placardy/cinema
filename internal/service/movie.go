@@ -105,7 +105,7 @@ func (m *movie) ValidateActorID(actorID uuid.UUID) error {
 func (m *movie) ValidateMovieID(movieID uuid.UUID) error {
 	exists, err := m.store.CheckActorExists(movieID)
 	if err != nil {
-		return fmt.Errorf("failed to check actor existence: %w", err)
+		return fmt.Errorf("failed to check movie existence: %w", err)
 	}
 	if !exists {
 		return fmt.Errorf("movie with ID %s not found", movieID)
@@ -227,10 +227,10 @@ func (m *movie) AddMovie(movie models.CreateMovie) (uuid.UUID, error) {
 
 // Получение фильма по ID
 func (s *movie) GetMovieByID(movieID uuid.UUID) (*models.Movie, error) {
-	err := s.ValidateMovieID(movieID)
-	if err != nil {
-		return nil, err
-	}
+	// err := s.ValidateMovieID(movieID)
+	// if err != nil {
+	// 	return nil, err
+	// }
 	// Вызываем репозиторий, чтобы получить сырые данные
 	rawData, err := s.store.GetMovieByID(movieID)
 	if err != nil {
@@ -327,9 +327,9 @@ func (m *movie) UpdateMovie(id uuid.UUID, movie models.UpdateMovie) error {
 
 // Удаление фильма по ID
 func (m *movie) DeleteMovie(movieID uuid.UUID) error {
-	err := m.ValidateMovieID(movieID)
-	if err != nil {
-		return err
-	}
+	// err := m.ValidateMovieID(movieID)
+	// if err != nil {
+	// 	return err
+	// }
 	return m.store.DeleteMovie(movieID)
 }
