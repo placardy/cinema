@@ -15,7 +15,7 @@ type serviceMovie interface {
 	// связи
 	AddMovieActorRelations(movieID uuid.UUID, actorIDs []uuid.UUID) error
 	RemoveSelectedMovieActorRelations(movieID uuid.UUID, actorIDs []uuid.UUID) error
-	UpdateMovieActorRealations(movieID uuid.UUID, actorIDs []uuid.UUID) error
+	UpdateMovieActorRelations(movieID uuid.UUID, actorIDs []uuid.UUID) error
 	// фильмы
 	AddMovie(movie models.CreateMovie) (uuid.UUID, error)
 	GetMovieByID(id uuid.UUID) (*models.Movie, error)
@@ -108,7 +108,7 @@ func (c *Cinema) UpdateMovieActorRelations(ctx *gin.Context) {
 		return
 	}
 
-	if err := c.movie.UpdateMovieActorRealations(relation.MovieID, relation.ActorIDs); err != nil {
+	if err := c.movie.UpdateMovieActorRelations(relation.MovieID, relation.ActorIDs); err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

@@ -19,6 +19,7 @@ func NewActor(db *sql.DB) *actor {
 	return &actor{db: db}
 }
 
+
 // Добавить актера
 func (a *actor) AddActor(actor models.CreateActor) (uuid.UUID, error) {
 	id := uuid.New()

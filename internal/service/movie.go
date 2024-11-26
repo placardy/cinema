@@ -11,8 +11,8 @@ import (
 
 type storeMovie interface {
 	BeginTransaction() (*sql.Tx, error)
-	CheckActorExists(actorID uuid.UUID) (bool, error)
 	CheckMovieExists(movieID uuid.UUID) (bool, error)
+	CheckActorsExist(actorIDs []uuid.UUID) (bool, error)
 	AddMovieActorRelations(tx *sql.Tx, movieID uuid.UUID, actorIDs []uuid.UUID) error
 	RemoveMovieActorRelations(tx *sql.Tx, movieID uuid.UUID) error
 	RemoveSelectedMovieActorRelations(tx *sql.Tx, movieID uuid.UUID, actorIDs []uuid.UUID) error
@@ -21,7 +21,7 @@ type storeMovie interface {
 	GetMoviesByActorID(actorID uuid.UUID, limit, offset int) ([]map[string]interface{}, error)
 	GetMoviesWithFilters(sortBy string, order string, limit, offset int) ([]map[string]interface{}, error)
 	SearchMoviesByTitleAndActor(titleFragment, actorNameFragment string, limit, offset int) ([]map[string]interface{}, error)
-	UpdateMovie(id uuid.UUID, movie models.UpdateMovie) error
+	UpdateMovie(tx *sql.Tx, id uuid.UUID, movie models.UpdateMovie) error
 	DeleteMovie(id uuid.UUID) error
 }
 
@@ -89,21 +89,20 @@ func withTransactionUUID(beginTx func() (*sql.Tx, error), action func(tx *sql.Tx
 	return result, nil
 }
 
-// Валидация actorIDs (проверка на существование)
-func (m *movie) ValidateActorID(actorID uuid.UUID) error {
-	exists, err := m.store.CheckActorExists(actorID) // Проверяем одного актера
+func (s *movie) ValidateActorIDs(actorIDs []uuid.UUID) error {
+	exists, err := s.store.CheckActorsExist(actorIDs)
 	if err != nil {
-		return fmt.Errorf("failed to check actor existence: %w", err)
+		return fmt.Errorf("failed to validate actor IDs: %w", err)
 	}
 	if !exists {
-		return fmt.Errorf("actor with ID %s not found", actorID)
+		return fmt.Errorf("one or more actors in the list do not exist")
 	}
 	return nil
 }
 
 // Валидация movieID (проверка на существование)
 func (m *movie) ValidateMovieID(movieID uuid.UUID) error {
-	exists, err := m.store.CheckActorExists(movieID)
+	exists, err := m.store.CheckMovieExists(movieID)
 	if err != nil {
 		return fmt.Errorf("failed to check movie existence: %w", err)
 	}
@@ -113,124 +112,126 @@ func (m *movie) ValidateMovieID(movieID uuid.UUID) error {
 	return nil
 }
 
-// Добавить связи фильм-актёр по movieID
-func (m *movie) AddMovieActorRelations(movieID uuid.UUID, actorIDs []uuid.UUID) error {
-	// 1. Проверяем существование фильма
-	err := m.ValidateMovieID(movieID)
-	if err != nil {
+func (s *movie) AddMovieActorRelations(movieID uuid.UUID, actorIDs []uuid.UUID) error {
+	// Validate movie and actors
+	if err := s.ValidateMovieID(movieID); err != nil {
+		return err
+	}
+	if err := s.ValidateActorIDs(actorIDs); err != nil {
 		return err
 	}
 
-	// 2. Проверяем существование актеров
-	for _, actorID := range actorIDs {
-		err := m.ValidateActorID(actorID)
+	// Transaction for adding relations
+	return withTransactionError(s.store.BeginTransaction, func(tx *sql.Tx) error {
+		err := s.store.AddMovieActorRelations(tx, movieID, actorIDs)
 		if err != nil {
-			return err
-		}
-	}
-
-	// Используем обертку для транзакций
-	return withTransactionError(m.store.BeginTransaction, func(tx *sql.Tx) error {
-		// 3. Добавление связей между фильмом и актерами
-		err := m.store.AddMovieActorRelations(tx, movieID, actorIDs)
-		if err != nil {
-			return fmt.Errorf("failed to add actor-movie relations: %w", err)
+			return fmt.Errorf("failed to add movie-actor relations: %w", err)
 		}
 		return nil
 	})
 }
 
-func (m *movie) UpdateMovieActorRealations(movieID uuid.UUID, actorIDs []uuid.UUID) error {
-	// Проверка существования фильма
-	err := m.ValidateMovieID(movieID)
-	if err != nil {
+func (s *movie) UpdateMovieActorRelations(movieID uuid.UUID, actorIDs []uuid.UUID) error {
+	// Validate movie and actors
+	if err := s.ValidateMovieID(movieID); err != nil {
+		return err
+	}
+	if err := s.ValidateActorIDs(actorIDs); err != nil {
 		return err
 	}
 
-	for _, actorID := range actorIDs {
-		err := m.ValidateActorID(actorID)
-		if err != nil {
-			return err
-		}
-	}
-
-	// Транзакционные операции: удаление и добавление связей
-	// 2. Начинаем транзакцию
-	return withTransactionError(m.store.BeginTransaction, func(tx *sql.Tx) error {
-		// 3. Удаление связей между фильмом и актерами
-		err = m.store.RemoveMovieActorRelations(tx, movieID)
-		if err != nil {
+	// Transaction for updating relations (remove old, add new)
+	return withTransactionError(s.store.BeginTransaction, func(tx *sql.Tx) error {
+		// Remove old relations
+		if err := s.store.RemoveMovieActorRelations(tx, movieID); err != nil {
 			return fmt.Errorf("failed to remove old relations: %w", err)
 		}
-
-		err = m.store.AddMovieActorRelations(tx, movieID, actorIDs)
-		if err != nil {
+		// Add new relations
+		if err := s.store.AddMovieActorRelations(tx, movieID, actorIDs); err != nil {
 			return fmt.Errorf("failed to add new relations: %w", err)
 		}
-
 		return nil
 	})
-
 }
 
-// Удалить связи фильм-актёры
-func (m *movie) RemoveSelectedMovieActorRelations(movieID uuid.UUID, actorIDs []uuid.UUID) error {
-	err := m.ValidateMovieID(movieID)
-	if err != nil {
+func (s *movie) RemoveSelectedMovieActorRelations(movieID uuid.UUID, actorIDs []uuid.UUID) error {
+	// Validate movie and actors
+	if err := s.ValidateMovieID(movieID); err != nil {
+		return err
+	}
+	if err := s.ValidateActorIDs(actorIDs); err != nil {
 		return err
 	}
 
-	for _, actorID := range actorIDs {
-		err := m.ValidateActorID(actorID)
+	// Transaction for removing specific relations
+	return withTransactionError(s.store.BeginTransaction, func(tx *sql.Tx) error {
+		err := s.store.RemoveSelectedMovieActorRelations(tx, movieID, actorIDs)
 		if err != nil {
-			return err
-		}
-	}
-
-	// 2. Начинаем транзакцию
-	return withTransactionError(m.store.BeginTransaction, func(tx *sql.Tx) error {
-		// 3. Удаление связей между фильмом и актерами
-		err := m.store.RemoveSelectedMovieActorRelations(tx, movieID, actorIDs)
-		if err != nil {
-			return fmt.Errorf("failed to remove actor-movie relations: %w", err)
+			return fmt.Errorf("failed to remove movie-actor relations: %w", err)
 		}
 		return nil
 	})
 }
 
-// Добавление фильма
-func (m *movie) AddMovie(movie models.CreateMovie) (uuid.UUID, error) {
-	// 1. Проверяем существование актеров
-	for _, actorID := range movie.ActorIDs {
-		err := m.ValidateActorID(actorID)
-		if err != nil {
-			return uuid.Nil, err
-		}
+func (s *movie) AddMovie(movie models.CreateMovie) (uuid.UUID, error) {
+	// Validate actors before proceeding
+	if err := s.ValidateActorIDs(movie.ActorIDs); err != nil {
+		return uuid.Nil, err
 	}
 
-	// Используем для начала транзакции
-	return withTransactionUUID(m.store.BeginTransaction, func(tx *sql.Tx) (uuid.UUID, error) {
-		// Добавляем фильм
-		movieID, err := m.store.AddMovie(tx, movie)
+	// Transaction for adding a new movie and its relations
+	movieID, err := withTransactionUUID(s.store.BeginTransaction, func(tx *sql.Tx) (uuid.UUID, error) {
+		// Add the movie
+		movieID, err := s.store.AddMovie(tx, movie)
+
 		if err != nil {
 			return uuid.Nil, fmt.Errorf("failed to add movie: %w", err)
 		}
-
-		// Добавляем связи между фильмом и актерами
-		if err := m.store.AddMovieActorRelations(tx, movieID, movie.ActorIDs); err != nil {
-			return uuid.Nil, fmt.Errorf("failed to add actor-movie relations: %w", err)
+		// Add actor relations
+		err = s.store.AddMovieActorRelations(tx, movieID, movie.ActorIDs)
+		if err != nil {
+			return uuid.Nil, fmt.Errorf("failed to add movie-actor relations: %w", err)
 		}
-
 		return movieID, nil
+	})
+
+	if err != nil {
+		return uuid.Nil, err
+	}
+
+	return movieID, nil
+}
+
+func (s *movie) UpdateMovie(movieID uuid.UUID, movie models.UpdateMovie) error {
+	// Validate movie ID
+	if err := s.ValidateMovieID(movieID); err != nil {
+		return err
+	}
+
+	// Transaction for updating movie and its relations
+	return withTransactionError(s.store.BeginTransaction, func(tx *sql.Tx) error {
+		// Update the movie details
+		err := s.store.UpdateMovie(tx, movieID, movie)
+		if err != nil {
+			return fmt.Errorf("failed to update movie: %w", err)
+		}
+		// Update actor relations if provided
+		if movie.ActorIDs != nil {
+			err = s.store.RemoveMovieActorRelations(tx, movieID)
+			if err != nil {
+				return fmt.Errorf("failed to remove old relations: %w", err)
+			}
+			err = s.store.AddMovieActorRelations(tx, movieID, *movie.ActorIDs)
+			if err != nil {
+				return fmt.Errorf("failed to add new relations: %w", err)
+			}
+		}
+		return nil
 	})
 }
 
 // Получение фильма по ID
 func (s *movie) GetMovieByID(movieID uuid.UUID) (*models.Movie, error) {
-	// err := s.ValidateMovieID(movieID)
-	// if err != nil {
-	// 	return nil, err
-	// }
 	// Вызываем репозиторий, чтобы получить сырые данные
 	rawData, err := s.store.GetMovieByID(movieID)
 	if err != nil {
@@ -320,16 +321,7 @@ func (m *movie) SearchMoviesByTitleAndActor(titleFragment string, actorNameFragm
 	return movies, nil
 }
 
-// Обновление информации о фильме
-func (m *movie) UpdateMovie(id uuid.UUID, movie models.UpdateMovie) error {
-	return m.store.UpdateMovie(id, movie)
-}
-
 // Удаление фильма по ID
 func (m *movie) DeleteMovie(movieID uuid.UUID) error {
-	// err := m.ValidateMovieID(movieID)
-	// if err != nil {
-	// 	return err
-	// }
 	return m.store.DeleteMovie(movieID)
 }

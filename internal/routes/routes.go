@@ -20,7 +20,7 @@ func SetupRoutes(router *gin.Engine, cinemaController *controller.Cinema) {
 	movieGroup := router.Group("/api/movies")
 	{
 		movieGroup.GET("/:id", cinemaController.GetMovieByID)                   // Получить фильм по ID
-		movieGroup.GET("/by_actor", cinemaController.GetMoviesByActorID)        // Фильмы по актеру   DONT WORK!
+		movieGroup.GET("/by_actor", cinemaController.GetMoviesByActorID)        // Фильмы по актеру
 		movieGroup.GET("/", cinemaController.GetMoviesWithFilters)              // Фильтрация фильмов
 		movieGroup.GET("/search", cinemaController.SearchMoviesByTitleAndActor) // Поиск по актеру и названию
 	}
@@ -42,7 +42,7 @@ func SetupRoutes(router *gin.Engine, cinemaController *controller.Cinema) {
 
 		adminGroup.POST("/movies", cinemaController.AddMovie)          // Добавить фильм (admin)
 		adminGroup.PUT("/movies/:id", cinemaController.UpdateMovie)    // Обновить фильм (admin) // DONT WORK не работает на уровне сервиса нужно доделать!
-		adminGroup.DELETE("/movies/:id", cinemaController.DeleteMovie) // Удалить фильм (admin) // WORK, без валидации DONT WORK
+		adminGroup.DELETE("/movies/:id", cinemaController.DeleteMovie) // Удалить фильм (admin)
 
 		adminGroup.POST("/actors", cinemaController.AddActor)          // Добавить актера (admin)
 		adminGroup.PUT("/actors/:id", cinemaController.UpdateActor)    // Обновить актера (admin)

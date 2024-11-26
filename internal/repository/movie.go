@@ -3,7 +3,6 @@ package repository
 import (
 	"database/sql"
 	"fmt"
-	"strings"
 	"time"
 
 	"cinema/internal/models"
@@ -52,29 +51,6 @@ func (m *movie) AddMovie(tx *sql.Tx, movie models.CreateMovie) (uuid.UUID, error
 	return id, nil
 }
 
-// Функция для проверки, существует ли актер по id
-func (m *movie) CheckActorExists(actorID uuid.UUID) (bool, error) {
-	query := sq.Select("EXISTS (SELECT 1 FROM actors WHERE id = $1)").
-		PlaceholderFormat(sq.Dollar).
-		From("actors").
-		Where(sq.Eq{"id": actorID})
-
-	sqlQuery, args, err := query.ToSql()
-	if err != nil {
-		return false, fmt.Errorf("failed to build check actor query: %w", err)
-	}
-
-	var exists bool
-	err = m.db.QueryRow(sqlQuery, args...).Scan(&exists)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return false, nil // актер не найден
-		}
-		return false, fmt.Errorf("error checking actor existence: %w", err)
-	}
-	return exists, nil
-}
-
 // Функция для проверки, существует ли фильм по id
 func (m *movie) CheckMovieExists(movieID uuid.UUID) (bool, error) {
 	query := sq.
@@ -96,31 +72,82 @@ func (m *movie) CheckMovieExists(movieID uuid.UUID) (bool, error) {
 
 	return exists, nil
 }
+func (r *movie) AddMovieActorRelations(tx *sql.Tx, movieID uuid.UUID, actorIDs []uuid.UUID) error {
+	if len(actorIDs) == 0 {
+		return nil // Если нет актеров для добавления, ничего не делаем
+	}
 
-// Функция для добавления новых связей по MovieID
-func (m *movie) AddMovieActorRelations(tx *sql.Tx, movieID uuid.UUID, actorIDs []uuid.UUID) error {
-	insertQuery := sq.Insert("movie_actors").
-		Columns("movie_id", "actor_id")
+	// Строим запрос на добавление всех связей актера с фильмом
+	queryBuilder := sq.Insert("movie_actors").
+		Columns("movie_id", "actor_id").
+		Suffix("ON CONFLICT (movie_id, actor_id) DO NOTHING") // Для предотвращения дублирования
 
-	// Добавляем все связи
+	// Добавляем каждую пару movie_id, actor_id
 	for _, actorID := range actorIDs {
-		insertQuery = insertQuery.Values(movieID, actorID)
+		queryBuilder = queryBuilder.Values(movieID, actorID)
 	}
 
 	// Генерация SQL-запроса
-	sqlQuery, args, err := insertQuery.PlaceholderFormat(sq.Dollar).ToSql()
+	sqlQuery, args, err := queryBuilder.PlaceholderFormat(sq.Dollar).ToSql()
 	if err != nil {
-		return fmt.Errorf("failed to build insert query: %w", err)
+		return fmt.Errorf("failed to build query: %w", err)
 	}
 
-	// Выполняем запрос в контексте транзакции
+	// Выполнение запроса
 	_, err = tx.Exec(sqlQuery, args...)
 	if err != nil {
-		// Если возникает ошибка уникальности, игнорируем её
-		if strings.Contains(err.Error(), "duplicate key value violates unique constraint") {
-			return nil // Пропускаем ошибку дублирования
-		}
-		return fmt.Errorf("failed to insert actor-movie relations: %w", err)
+		return fmt.Errorf("failed to add movie-actor relations: %w", err)
+	}
+
+	return nil
+}
+
+func (r *movie) CheckActorsExist(actorIDs []uuid.UUID) (bool, error) {
+	if len(actorIDs) == 0 {
+		return true, nil // Пустой список валиден
+	}
+
+	query := sq.
+		Select("COUNT(*)").
+		From("actors").
+		Where(sq.Eq{"id": actorIDs}).
+		PlaceholderFormat(sq.Dollar)
+
+	sqlQuery, args, err := query.ToSql()
+	if err != nil {
+		return false, fmt.Errorf("failed to build query: %w", err)
+	}
+
+	var count int
+	err = r.db.QueryRow(sqlQuery, args...).Scan(&count)
+	if err != nil {
+		return false, fmt.Errorf("failed to check actors existence: %w", err)
+	}
+
+	// Проверяем, что количество найденных записей совпадает с количеством переданных ID
+	return count == len(actorIDs), nil
+}
+
+func (r *movie) RemoveSelectedMovieActorRelations(tx *sql.Tx, movieID uuid.UUID, actorIDs []uuid.UUID) error {
+	if len(actorIDs) == 0 {
+		return nil // Если нет актеров, которых нужно удалить, ничего не делаем
+	}
+
+	// Формируем запрос на удаление
+	query := sq.Delete("movie_actors").
+		Where(sq.Eq{"movie_id": movieID}).
+		Where(sq.Eq{"actor_id": actorIDs}).
+		PlaceholderFormat(sq.Dollar)
+
+	sqlQuery, args, err := query.ToSql()
+	if err != nil {
+		return fmt.Errorf("failed to build query: %w", err)
+	}
+
+	// Выполнение запроса
+	_, err = tx.Exec(sqlQuery, args...)
+	if err != nil {
+		return fmt.Errorf("failed to remove movie-actor relations: %w", err)
 	}
 
 	return nil
@@ -139,30 +166,6 @@ func (m *movie) RemoveMovieActorRelations(tx *sql.Tx, movieID uuid.UUID) error {
 	if err != nil {
 		return fmt.Errorf("failed to delete old relations: %w", err)
 	}
-	return nil
-}
-
-// RemoveMovieActorRelations удаляет связи между фильмом и актёрами
-func (m *movie) RemoveSelectedMovieActorRelations(tx *sql.Tx, movieID uuid.UUID, actorIDs []uuid.UUID) error {
-	// Если список actorIDs пуст, нет необходимости выполнять запрос
-	if len(actorIDs) == 0 {
-		return nil
-	}
-
-	deleteQuery := sq.Delete("movie_actors").
-		Where(sq.Eq{"movie_id": movieID}).
-		Where(sq.Eq{"actor_id": actorIDs}) // Удаляем только указанных актёров
-
-	sqlQuery, args, err := deleteQuery.PlaceholderFormat(sq.Dollar).ToSql()
-	if err != nil {
-		return fmt.Errorf("failed to build delete query: %w", err)
-	}
-
-	_, err = tx.Exec(sqlQuery, args...)
-	if err != nil {
-		return fmt.Errorf("failed to remove actor-movie relations: %w", err)
-	}
-
 	return nil
 }
 
@@ -246,23 +249,6 @@ func (m *movie) GetMoviesByActorID(actorID uuid.UUID, limit, offset int) ([]map[
 
 // Получить фильмы с фильтрацией
 func (m *movie) GetMoviesWithFilters(sortBy string, order string, limit, offset int) ([]map[string]interface{}, error) {
-	// Валидация
-	// validSortColumns := map[string]struct{}{
-	// 	"title":        {},
-	// 	"release_date": {},
-	// 	"rating":       {},
-	// }
-	// validOrder := map[string]struct{}{
-	// 	"ASC":  {},
-	// 	"DESC": {},
-	// }
-	// if _, ok := validSortColumns[sortBy]; !ok {
-	// 	sortBy = "rating"
-	// }
-	// if _, ok := validOrder[order]; !ok {
-	// 	order = "DESC"
-	// }
-
 	// Строим SQL запрос
 	query := sq.
 		Select("id", "title", "description", "release_date", "rating").
@@ -368,7 +354,7 @@ func (m *movie) SearchMoviesByTitleAndActor(filterTitle, filterActor string, lim
 }
 
 // Обновить фильм
-func (m *movie) UpdateMovie(id uuid.UUID, movie models.UpdateMovie) error {
+func (m *movie) UpdateMovie(tx *sql.Tx, id uuid.UUID, movie models.UpdateMovie) error {
 	query := sq.
 		Update("movies").
 		Set("title", sq.Expr("COALESCE(?, title)", movie.Title)).
@@ -383,7 +369,7 @@ func (m *movie) UpdateMovie(id uuid.UUID, movie models.UpdateMovie) error {
 		return fmt.Errorf("failed to build query: %w", err)
 	}
 
-	_, err = m.db.Exec(sqlQuery, args...)
+	_, err = tx.Exec(sqlQuery, args...)
 	if err != nil {
 		return fmt.Errorf("failed to update movie: %w", err)
 	}
