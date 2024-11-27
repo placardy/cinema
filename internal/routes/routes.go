@@ -26,13 +26,13 @@ func SetupRoutes(router *gin.Engine, cinemaController *controller.Cinema) {
 	}
 
 	// Административные маршруты связей
-	relationGroup := router.Group("/api/movie_actors")
+	relationGroup := router.Group("/api/movie-actors")
 	{
 		relationGroup.Use(middleware.JWTAuthMiddleware(), middleware.RoleMiddleware([]string{"admin"}))
 
-		relationGroup.POST("/add", cinemaController.AddMovieActorRelations)                 // Добавить связи
-		relationGroup.DELETE("/delete", cinemaController.RemoveSelectedMovieActorRelations) // Удалить связи
-		relationGroup.PUT("update", cinemaController.UpdateMovieActorRelations)             // Обновить связи
+		relationGroup.POST("/", cinemaController.AddMovieActorRelations)              // Добавить связи
+		relationGroup.DELETE("/", cinemaController.RemoveSelectedMovieActorRelations) // Удалить связи
+		relationGroup.PUT("/", cinemaController.UpdateMovieActorRelations)            // Обновить связи
 	}
 
 	// Административные маршруты
