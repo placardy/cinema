@@ -4,6 +4,7 @@ import (
 	"cinema/internal/models"
 	"database/sql"
 	"fmt"
+	"log"
 	"time"
 
 	sq "github.com/Masterminds/squirrel"
@@ -19,7 +20,6 @@ func NewActor(db *sql.DB) *actor {
 	return &actor{db: db}
 }
 
-
 // Добавить актера
 func (a *actor) AddActor(actor models.CreateActor) (uuid.UUID, error) {
 	id := uuid.New()
@@ -32,17 +32,18 @@ func (a *actor) AddActor(actor models.CreateActor) (uuid.UUID, error) {
 
 	sqlQuery, args, err := query.ToSql()
 	if err != nil {
+		log.Printf("Error building query in AddActor: %v", err)
 		return uuid.Nil, fmt.Errorf("failed to build query: %w", err)
 	}
 
 	err = a.db.QueryRow(sqlQuery, args...).Scan(&id)
 	if err != nil {
+		log.Printf("Error executing query in AddActor: %v", err)
 		return uuid.Nil, fmt.Errorf("failed to add actor: %w", err)
 	}
 	return id, nil
 }
 
-// Получить актера по id
 func (a *actor) GetActor(id uuid.UUID) (map[string]interface{}, error) {
 	query := sq.
 		Select("id", "name", "gender", "date_of_birth").
@@ -52,6 +53,7 @@ func (a *actor) GetActor(id uuid.UUID) (map[string]interface{}, error) {
 
 	sqlQuery, args, err := query.ToSql()
 	if err != nil {
+		log.Printf("Error building query in GetActor: %v", err)
 		return nil, fmt.Errorf("failed to build query: %w", err)
 	}
 
@@ -65,6 +67,7 @@ func (a *actor) GetActor(id uuid.UUID) (map[string]interface{}, error) {
 		if err == sql.ErrNoRows {
 			return nil, nil // Актёр не найден
 		}
+		log.Printf("Error executing query in GetActor: %v", err)
 		return nil, fmt.Errorf("failed to get actor: %w", err)
 	}
 
@@ -76,48 +79,6 @@ func (a *actor) GetActor(id uuid.UUID) (map[string]interface{}, error) {
 	return rawData, nil
 }
 
-// Обновить актера
-func (a *actor) UpdateActor(id uuid.UUID, actor models.UpdateActor) error {
-	query := sq.
-		Update("actors").
-		Set("name", sq.Expr("COALESCE(?, name)", actor.Name)).
-		Set("gender", sq.Expr("COALESCE(?, gender)", actor.Gender)).
-		Set("date_of_birth", sq.Expr("COALESCE(?, date_of_birth)", actor.DateOfBirth)).
-		Where(sq.Eq{"id": id}).
-		PlaceholderFormat(sq.Dollar)
-
-	sqlQuery, args, err := query.ToSql()
-	if err != nil {
-		return fmt.Errorf("failed to build query: %w", err)
-	}
-
-	_, err = a.db.Exec(sqlQuery, args...)
-	if err != nil {
-		return fmt.Errorf("failed to update actor: %w", err)
-	}
-	return nil
-}
-
-// Удалить актера
-func (a *actor) DeleteActor(id uuid.UUID) error {
-	query := sq.
-		Delete("actors").
-		Where(sq.Eq{"id": id}).
-		PlaceholderFormat(sq.Dollar)
-
-	sqlQuery, args, err := query.ToSql()
-	if err != nil {
-		return fmt.Errorf("failed to build query: %w", err)
-	}
-
-	_, err = a.db.Exec(sqlQuery, args...)
-	if err != nil {
-		return fmt.Errorf("failed to delete actor: %w", err)
-	}
-	return nil
-}
-
-// Получить актеров
 func (a *actor) GetAllActors(limit, offset int) ([]map[string]interface{}, error) {
 	query := sq.
 		Select("id", "name", "gender", "date_of_birth").
@@ -128,11 +89,13 @@ func (a *actor) GetAllActors(limit, offset int) ([]map[string]interface{}, error
 
 	sqlQuery, args, err := query.ToSql()
 	if err != nil {
+		log.Printf("Error building query in GetAllActors: %v", err)
 		return nil, fmt.Errorf("failed to build query: %w", err)
 	}
 
 	rows, err := a.db.Query(sqlQuery, args...)
 	if err != nil {
+		log.Printf("Error executing query in GetAllActors: %v", err)
 		return nil, fmt.Errorf("failed to get actors: %w", err)
 	}
 	defer rows.Close()
@@ -145,6 +108,7 @@ func (a *actor) GetAllActors(limit, offset int) ([]map[string]interface{}, error
 
 		err := rows.Scan(&id, &name, &gender, &dateOfBirth)
 		if err != nil {
+			log.Printf("Error scanning row in GetAllActors: %v", err)
 			return nil, fmt.Errorf("failed to scan actor: %w", err)
 		}
 
@@ -157,15 +121,14 @@ func (a *actor) GetAllActors(limit, offset int) ([]map[string]interface{}, error
 		rawActors = append(rawActors, rawActor)
 	}
 
-	// Проверяем наличие ошибок при итерации по строкам
 	if err := rows.Err(); err != nil {
+		log.Printf("Error iterating rows in GetAllActors: %v", err)
 		return nil, fmt.Errorf("error occurred while iterating rows: %w", err)
 	}
 
 	return rawActors, nil
 }
 
-// Получить актеров с фильмами с пагинацией
 func (a *actor) GetActorsWithMovies(limit, offset int) ([]map[string]interface{}, error) {
 	// Создаем подзапрос для пагинации актеров
 	actorsQuery := sq.
@@ -187,12 +150,14 @@ func (a *actor) GetActorsWithMovies(limit, offset int) ([]map[string]interface{}
 
 	sqlQuery, args, err := query.ToSql()
 	if err != nil {
+		log.Printf("Error building query in GetActorsWithMovies: %v", err)
 		return nil, fmt.Errorf("failed to build query: %w", err)
 	}
 
 	rows, err := a.db.Query(sqlQuery, args...)
 	if err != nil {
-		return nil, err
+		log.Printf("Error executing query in GetActorsWithMovies: %v", err)
+		return nil, fmt.Errorf("failed to execute query: %w", err)
 	}
 	defer rows.Close()
 
@@ -224,7 +189,8 @@ func (a *actor) GetActorsWithMovies(limit, offset int) ([]map[string]interface{}
 			&movieRelease,
 			&movieRating,
 		); err != nil {
-			return nil, err
+			log.Printf("Error scanning row in GetActorsWithMovies: %v", err)
+			return nil, fmt.Errorf("failed to scan row: %w", err)
 		}
 		// Проверяем, есть ли актёр в словаре
 		if actor, exists := actorsMap[actorID]; exists {
@@ -264,6 +230,11 @@ func (a *actor) GetActorsWithMovies(limit, offset int) ([]map[string]interface{}
 		}
 	}
 
+	if err := rows.Err(); err != nil {
+		log.Printf("Error iterating over rows in GetActorsWithMovies: %v", err)
+		return nil, fmt.Errorf("error occurred while iterating rows: %w", err)
+	}
+
 	// Преобразуем карту в срез для возврата
 	var result []map[string]interface{}
 	for _, actor := range actorsMap {
@@ -273,102 +244,45 @@ func (a *actor) GetActorsWithMovies(limit, offset int) ([]map[string]interface{}
 	return result, nil
 }
 
-// С маппингом
-// func (a *actor) GetActorsWithMovies(limit, offset int) ([]*models.Actor, error) {
-// 	// Создаем подзапрос для пагинации актеров
-// 	actorsQuery := sq.
-// 		Select("id AS actor_id", "name AS actor_name", "gender AS actor_gender", "date_of_birth AS actor_birth_date").
-// 		From("actors").
-// 		OrderBy("name ASC").
-// 		Limit(uint64(limit)).
-// 		Offset(uint64(offset))
+func (a *actor) UpdateActor(id uuid.UUID, actor models.UpdateActor) error {
+	query := sq.
+		Update("actors").
+		Set("name", sq.Expr("COALESCE(?, name)", actor.Name)).
+		Set("gender", sq.Expr("COALESCE(?, gender)", actor.Gender)).
+		Set("date_of_birth", sq.Expr("COALESCE(?, date_of_birth)", actor.DateOfBirth)).
+		Where(sq.Eq{"id": id}).
+		PlaceholderFormat(sq.Dollar)
 
-// 	// Основной запрос с соединением фильмов
-// 	query := sq.
-// 		Select("pa.actor_id", "pa.actor_name", "pa.actor_gender", "pa.actor_birth_date", "m.id AS movie_id",
-// 			"m.title AS movie_title", "m.description AS movie_description", "m.release_date AS movie_release_date", "m.rating AS movie_rating").
-// 		FromSelect(actorsQuery, "pa").
-// 		LeftJoin("movie_actors ma ON pa.actor_id = ma.actor_id").
-// 		LeftJoin("movies m ON ma.movie_id = m.id").
-// 		OrderBy("pa.actor_name ASC", "pa.actor_id").
-// 		PlaceholderFormat(sq.Dollar)
+	sqlQuery, args, err := query.ToSql()
+	if err != nil {
+		log.Printf("Error building query in UpdateActor: %v", err)
+		return fmt.Errorf("failed to build query: %w", err)
+	}
 
-// 	sqlQuery, args, err := query.ToSql()
-// 	if err != nil {
-// 		return nil, fmt.Errorf("failed to build query: %w", err)
-// 	}
+	_, err = a.db.Exec(sqlQuery, args...)
+	if err != nil {
+		log.Printf("Error executing query in UpdateActor: %v", err)
+		return fmt.Errorf("failed to update actor: %w", err)
+	}
+	return nil
+}
 
-// 	rows, err := a.db.Query(sqlQuery, args...)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	defer rows.Close()
-// 	var actors []*models.Actor
-// 	// Создаем мапу для отслеживания добавленных актеров
-// 	actorsMap := make(map[uuid.UUID]*models.Actor)
+func (a *actor) DeleteActor(id uuid.UUID) error {
+	query := sq.
+		Delete("actors").
+		Where(sq.Eq{"id": id}).
+		PlaceholderFormat(sq.Dollar)
 
-// 	for rows.Next() {
-// 		var (
-// 			actorID        uuid.UUID
-// 			actorName      string
-// 			actorGender    string
-// 			actorBirthDate time.Time
-// 			movieID        *uuid.UUID
-// 			movieTitle     *string
-// 			movieDesc      *string
-// 			movieRelease   *time.Time
-// 			movieRating    *float64
-// 		)
+	sqlQuery, args, err := query.ToSql()
+	if err != nil {
+		log.Printf("Error building query in DeleteActor: %v", err)
+		return fmt.Errorf("failed to build query: %w", err)
+	}
 
-// 		if err := rows.Scan(
-// 			&actorID,
-// 			&actorName,
-// 			&actorGender,
-// 			&actorBirthDate,
-// 			&movieID,
-// 			&movieTitle,
-// 			&movieDesc,
-// 			&movieRelease,
-// 			&movieRating,
-// 		); err != nil {
-// 			return nil, err
-// 		}
-// 		// Проверяем, существует ли актер в мапе
-// 		if actor, exists := actorsMap[actorID]; exists {
-// 			// Добавляем фильм к существующему актеру
-// 			if movieID != nil {
-// 				actor.Movies = append(actor.Movies, models.Movie{
-// 					ID:          *movieID,
-// 					Title:       *movieTitle,
-// 					Description: *movieDesc,
-// 					ReleaseDate: *movieRelease,
-// 					Rating:      *movieRating,
-// 				})
-// 			}
-// 		} else {
-// 			// Создаем нового актера и добавляем его в срез
-// 			newActor := &models.Actor{
-// 				ID:          actorID,
-// 				Name:        actorName,
-// 				Gender:      actorGender,
-// 				DateOfBirth: actorBirthDate,
-// 				Movies:      []models.Movie{},
-// 			}
-// 			// Добавляем фильм только если он существует
-// 			if movieID != nil {
-// 				newActor.Movies = append(newActor.Movies, models.Movie{
-// 					ID:          *movieID,
-// 					Title:       *movieTitle,
-// 					Description: *movieDesc,
-// 					ReleaseDate: *movieRelease,
-// 					Rating:      *movieRating,
-// 				})
-// 			}
-// 			// Сохраняем актера в мапе и срезе
-// 			actorsMap[actorID] = newActor
-// 			actors = append(actors, newActor)
-// 		}
-// 	}
-
-// 	return actors, nil
-// }
+	_, err = a.db.Exec(sqlQuery, args...)
+	if err != nil {
+		log.Printf("Error executing query in DeleteActor: %v", err)
+		return fmt.Errorf("failed to delete actor: %w", err)
+	}
+	return nil
+}

@@ -47,11 +47,11 @@ func NewCinema(movie serviceMovie, actor serviceActor) *Cinema {
 func parseLimitOffset(ctx *gin.Context) (int, int, error) {
 	limit, err := strconv.Atoi(ctx.Query("limit"))
 	if err != nil || limit <= 0 {
-		return 0, 0, fmt.Errorf("invalid or missing limit")
+		return 0, 0, fmt.Errorf("invalid or missing limit: %s", ctx.Query("limit"))
 	}
 	offset, err := strconv.Atoi(ctx.Query("offset"))
 	if err != nil || offset < 0 {
-		return 0, 0, fmt.Errorf("invalid or missing offset")
+		return 0, 0, fmt.Errorf("invalid or missing limit: %s", ctx.Query("limit"))
 	}
 	return limit, offset, nil
 }
