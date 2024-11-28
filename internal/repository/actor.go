@@ -32,13 +32,13 @@ func (a *actor) AddActor(actor models.CreateActor) (uuid.UUID, error) {
 
 	sqlQuery, args, err := query.ToSql()
 	if err != nil {
-		log.Printf("Error building query in AddActor: %v", err)
+		log.Printf("[AddActor] Error building query: %v", err)
 		return uuid.Nil, fmt.Errorf("failed to build query: %w", err)
 	}
 
 	err = a.db.QueryRow(sqlQuery, args...).Scan(&id)
 	if err != nil {
-		log.Printf("Error executing query in AddActor: %v", err)
+		log.Printf("[AddActor] Error executing query: %v", err)
 		return uuid.Nil, fmt.Errorf("failed to add actor: %w", err)
 	}
 	return id, nil
@@ -53,7 +53,7 @@ func (a *actor) GetActor(id uuid.UUID) (map[string]interface{}, error) {
 
 	sqlQuery, args, err := query.ToSql()
 	if err != nil {
-		log.Printf("Error building query in GetActor: %v", err)
+		log.Printf("[GetActor] Error building query: %v", err)
 		return nil, fmt.Errorf("failed to build query: %w", err)
 	}
 
@@ -67,7 +67,7 @@ func (a *actor) GetActor(id uuid.UUID) (map[string]interface{}, error) {
 		if err == sql.ErrNoRows {
 			return nil, nil // Актёр не найден
 		}
-		log.Printf("Error executing query in GetActor: %v", err)
+		log.Printf("[GetActor] Error executing query: %v", err)
 		return nil, fmt.Errorf("failed to get actor: %w", err)
 	}
 
@@ -89,13 +89,13 @@ func (a *actor) GetAllActors(limit, offset int) ([]map[string]interface{}, error
 
 	sqlQuery, args, err := query.ToSql()
 	if err != nil {
-		log.Printf("Error building query in GetAllActors: %v", err)
+		log.Printf("[GetAllActors] Error building query: %v", err)
 		return nil, fmt.Errorf("failed to build query: %w", err)
 	}
 
 	rows, err := a.db.Query(sqlQuery, args...)
 	if err != nil {
-		log.Printf("Error executing query in GetAllActors: %v", err)
+		log.Printf("[GetAllActors] Error executing query: %v", err)
 		return nil, fmt.Errorf("failed to get actors: %w", err)
 	}
 	defer rows.Close()
@@ -108,7 +108,7 @@ func (a *actor) GetAllActors(limit, offset int) ([]map[string]interface{}, error
 
 		err := rows.Scan(&id, &name, &gender, &dateOfBirth)
 		if err != nil {
-			log.Printf("Error scanning row in GetAllActors: %v", err)
+			log.Printf("[GetAllActors] Error scanning row: %v", err)
 			return nil, fmt.Errorf("failed to scan actor: %w", err)
 		}
 
@@ -122,7 +122,7 @@ func (a *actor) GetAllActors(limit, offset int) ([]map[string]interface{}, error
 	}
 
 	if err := rows.Err(); err != nil {
-		log.Printf("Error iterating rows in GetAllActors: %v", err)
+		log.Printf("[GetAllActors] Error iterating rows: %v", err)
 		return nil, fmt.Errorf("error occurred while iterating rows: %w", err)
 	}
 
@@ -150,13 +150,13 @@ func (a *actor) GetActorsWithMovies(limit, offset int) ([]map[string]interface{}
 
 	sqlQuery, args, err := query.ToSql()
 	if err != nil {
-		log.Printf("Error building query in GetActorsWithMovies: %v", err)
+		log.Printf("[GetActorsWithMovies] Error building query: %v", err)
 		return nil, fmt.Errorf("failed to build query: %w", err)
 	}
 
 	rows, err := a.db.Query(sqlQuery, args...)
 	if err != nil {
-		log.Printf("Error executing query in GetActorsWithMovies: %v", err)
+		log.Printf("[GetActorsWithMovies] Error executing query: %v", err)
 		return nil, fmt.Errorf("failed to execute query: %w", err)
 	}
 	defer rows.Close()
@@ -189,7 +189,7 @@ func (a *actor) GetActorsWithMovies(limit, offset int) ([]map[string]interface{}
 			&movieRelease,
 			&movieRating,
 		); err != nil {
-			log.Printf("Error scanning row in GetActorsWithMovies: %v", err)
+			log.Printf("[GetActorsWithMovies] Error scanning row: %v", err)
 			return nil, fmt.Errorf("failed to scan row: %w", err)
 		}
 		// Проверяем, есть ли актёр в словаре
@@ -231,7 +231,7 @@ func (a *actor) GetActorsWithMovies(limit, offset int) ([]map[string]interface{}
 	}
 
 	if err := rows.Err(); err != nil {
-		log.Printf("Error iterating over rows in GetActorsWithMovies: %v", err)
+		log.Printf("[GetActorsWithMovies] Error iterating over rows: %v", err)
 		return nil, fmt.Errorf("error occurred while iterating rows: %w", err)
 	}
 
@@ -255,13 +255,13 @@ func (a *actor) UpdateActor(id uuid.UUID, actor models.UpdateActor) error {
 
 	sqlQuery, args, err := query.ToSql()
 	if err != nil {
-		log.Printf("Error building query in UpdateActor: %v", err)
+		log.Printf("[UpdateActor] Error building query: %v", err)
 		return fmt.Errorf("failed to build query: %w", err)
 	}
 
 	_, err = a.db.Exec(sqlQuery, args...)
 	if err != nil {
-		log.Printf("Error executing query in UpdateActor: %v", err)
+		log.Printf("[UpdateActor] Error executing query: %v", err)
 		return fmt.Errorf("failed to update actor: %w", err)
 	}
 	return nil
@@ -275,13 +275,13 @@ func (a *actor) DeleteActor(id uuid.UUID) error {
 
 	sqlQuery, args, err := query.ToSql()
 	if err != nil {
-		log.Printf("Error building query in DeleteActor: %v", err)
+		log.Printf("[DeleteActor] Error building query: %v", err)
 		return fmt.Errorf("failed to build query: %w", err)
 	}
 
 	_, err = a.db.Exec(sqlQuery, args...)
 	if err != nil {
-		log.Printf("Error executing query in DeleteActor: %v", err)
+		log.Printf("[DeleteActor] Error executing query: %v", err)
 		return fmt.Errorf("failed to delete actor: %w", err)
 	}
 	return nil

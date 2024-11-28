@@ -4,6 +4,7 @@ import (
 	"cinema/internal/models"
 	"database/sql"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/google/uuid"
@@ -122,13 +123,21 @@ func (s *movie) AddMovieActorRelations(movieID uuid.UUID, actorIDs []uuid.UUID) 
 	}
 
 	// Transaction for adding relations
-	return withTransactionError(s.store.BeginTransaction, func(tx *sql.Tx) error {
+	err := withTransactionError(s.store.BeginTransaction, func(tx *sql.Tx) error {
 		err := s.store.AddMovieActorRelations(tx, movieID, actorIDs)
 		if err != nil {
+			log.Printf("Error adding movie-actor relations for movie ID %v: %v", movieID, err)
 			return fmt.Errorf("failed to add movie-actor relations: %w", err)
 		}
 		return nil
 	})
+	if err != nil {
+		log.Printf("Transaction failed while adding movie-actor relations for movie ID %v: %v", movieID, err)
+		return err
+	}
+
+	return nil
+
 }
 
 func (s *movie) UpdateMovieActorRelations(movieID uuid.UUID, actorIDs []uuid.UUID) error {
@@ -141,17 +150,24 @@ func (s *movie) UpdateMovieActorRelations(movieID uuid.UUID, actorIDs []uuid.UUI
 	}
 
 	// Transaction for updating relations (remove old, add new)
-	return withTransactionError(s.store.BeginTransaction, func(tx *sql.Tx) error {
+	err := withTransactionError(s.store.BeginTransaction, func(tx *sql.Tx) error {
 		// Remove old relations
 		if err := s.store.RemoveMovieActorRelations(tx, movieID); err != nil {
+			log.Printf("Error removing old movie-actor relations for movie ID %v: %v", movieID, err)
 			return fmt.Errorf("failed to remove old relations: %w", err)
 		}
 		// Add new relations
 		if err := s.store.AddMovieActorRelations(tx, movieID, actorIDs); err != nil {
+			log.Printf("Error adding new movie-actor relations for movie ID %v: %v", movieID, err)
 			return fmt.Errorf("failed to add new relations: %w", err)
 		}
 		return nil
 	})
+	if err != nil {
+		log.Printf("Transaction failed while updating movie-actor relations for movie ID %v: %v", movieID, err)
+		return err
+	}
+	return nil
 }
 
 func (s *movie) RemoveSelectedMovieActorRelations(movieID uuid.UUID, actorIDs []uuid.UUID) error {
@@ -164,13 +180,19 @@ func (s *movie) RemoveSelectedMovieActorRelations(movieID uuid.UUID, actorIDs []
 	}
 
 	// Transaction for removing specific relations
-	return withTransactionError(s.store.BeginTransaction, func(tx *sql.Tx) error {
+	err := withTransactionError(s.store.BeginTransaction, func(tx *sql.Tx) error {
 		err := s.store.RemoveSelectedMovieActorRelations(tx, movieID, actorIDs)
 		if err != nil {
+			log.Printf("Error removing selected movie-actor relations for movie ID %v: %v", movieID, err)
 			return fmt.Errorf("failed to remove movie-actor relations: %w", err)
 		}
 		return nil
 	})
+	if err != nil {
+		log.Printf("Transaction failed while removing selected movie-actor relations for movie ID %v: %v", movieID, err)
+		return err
+	}
+	return nil
 }
 
 func (s *movie) AddMovie(movie models.CreateMovie) (uuid.UUID, error) {
@@ -185,17 +207,20 @@ func (s *movie) AddMovie(movie models.CreateMovie) (uuid.UUID, error) {
 		movieID, err := s.store.AddMovie(tx, movie)
 
 		if err != nil {
+			log.Printf("[AddMovie] Failed to add movie %v: %v", movie.Title, err)
 			return uuid.Nil, fmt.Errorf("failed to add movie: %w", err)
 		}
 		// Add actor relations
 		err = s.store.AddMovieActorRelations(tx, movieID, movie.ActorIDs)
 		if err != nil {
+			log.Printf("[AddMovie] Failed to add movie-actor relations for movie ID %v: %v", movieID, err)
 			return uuid.Nil, fmt.Errorf("failed to add movie-actor relations: %w", err)
 		}
 		return movieID, nil
 	})
 
 	if err != nil {
+		log.Printf("[AddMovie] Transaction failed for movie %v: %v", movie.Title, err)
 		return uuid.Nil, err
 	}
 
@@ -209,25 +234,36 @@ func (s *movie) UpdateMovie(movieID uuid.UUID, movie models.UpdateMovie) error {
 	}
 
 	// Transaction for updating movie and its relations
-	return withTransactionError(s.store.BeginTransaction, func(tx *sql.Tx) error {
+	err := withTransactionError(s.store.BeginTransaction, func(tx *sql.Tx) error {
 		// Update the movie details
 		err := s.store.UpdateMovie(tx, movieID, movie)
 		if err != nil {
-			return fmt.Errorf("failed to update movie: %w", err)
+			log.Printf("[UpdateMovie] Failed to update movie details for ID %v: %v", movieID, err)
+			return fmt.Errorf("[UpdateMovie] failed to update movie: %w", err)
 		}
+
 		// Update actor relations if provided
 		if movie.ActorIDs != nil {
 			err = s.store.RemoveMovieActorRelations(tx, movieID)
 			if err != nil {
-				return fmt.Errorf("failed to remove old relations: %w", err)
+				log.Printf("[UpdateMovie] Failed to remove old relations for movie ID %v: %v", movieID, err)
+				return fmt.Errorf("[UpdateMovie] failed to remove old relations: %w", err)
 			}
+
 			err = s.store.AddMovieActorRelations(tx, movieID, *movie.ActorIDs)
 			if err != nil {
-				return fmt.Errorf("failed to add new relations: %w", err)
+				log.Printf("[UpdateMovie] Failed to add new relations for movie ID %v: %v", movieID, err)
+				return fmt.Errorf("[UpdateMovie] failed to add new relations: %w", err)
 			}
 		}
 		return nil
 	})
+
+	if err != nil {
+		log.Printf("[UpdateMovie] Transaction failed for movie ID %v: %v", movieID, err)
+		return err
+	}
+	return nil
 }
 
 // Получение фильма по ID
@@ -235,6 +271,7 @@ func (s *movie) GetMovieByID(movieID uuid.UUID) (*models.Movie, error) {
 	// Вызываем репозиторий, чтобы получить сырые данные
 	rawData, err := s.store.GetMovieByID(movieID)
 	if err != nil {
+		log.Printf("[GetMovieByID] Failed to retrieve movie with ID %v: %v", movieID, err)
 		return nil, err
 	}
 	if rawData == nil {
@@ -257,6 +294,7 @@ func (s *movie) GetMovieByID(movieID uuid.UUID) (*models.Movie, error) {
 func (m *movie) GetMoviesByActorID(actorID uuid.UUID, limit, offset int) ([]*models.Movie, error) {
 	rawData, err := m.store.GetMoviesByActorID(actorID, limit, offset)
 	if err != nil {
+		log.Printf("[GetMoviesByActorID] Failed to retrieve movies for actor ID %v: %v", actorID, err)
 		return nil, err
 	}
 	var movies []*models.Movie
@@ -278,6 +316,7 @@ func (m *movie) GetMoviesWithFilters(sortBy string, order string, limit, offset 
 	// Получаем сырые данные из репозитория
 	rawData, err := m.store.GetMoviesWithFilters(sortBy, order, limit, offset)
 	if err != nil {
+		log.Printf("[GetMoviesWithFilters] Failed to fetch movies with sortBy=%s, order=%s: %v", sortBy, order, err)
 		return nil, err
 	}
 
@@ -302,6 +341,7 @@ func (m *movie) SearchMoviesByTitleAndActor(titleFragment string, actorNameFragm
 	// Получаем сырые данные из репозитория
 	rawData, err := m.store.SearchMoviesByTitleAndActor(titleFragment, actorNameFragment, limit, offset)
 	if err != nil {
+		log.Printf("[SearchMoviesByTitleAndActor] Failed to search movies by titleFragment=%q, actorNameFragment=%q: %v", titleFragment, actorNameFragment, err)
 		return nil, err
 	}
 
