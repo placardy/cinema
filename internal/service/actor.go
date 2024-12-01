@@ -9,12 +9,12 @@ import (
 )
 
 type storeActor interface {
-	AddActor(actor models.CreateActor) (uuid.UUID, error)
+	CreateActor(actor models.CreateActor) (uuid.UUID, error)
 	GetActor(id uuid.UUID) (map[string]interface{}, error)
-	UpdateActor(id uuid.UUID, actor models.UpdateActor) error
-	DeleteActor(id uuid.UUID) error
 	GetAllActors(limit, offset int) ([]map[string]interface{}, error)
 	GetActorsWithMovies(limit, offset int) ([]map[string]interface{}, error)
+	UpdateActor(id uuid.UUID, actor models.UpdateActor) error
+	DeleteActor(id uuid.UUID) error
 }
 
 type actor struct {
@@ -26,8 +26,8 @@ func NewActor(store storeActor) *actor {
 }
 
 // Добавление актера
-func (a *actor) AddActor(actor models.CreateActor) (uuid.UUID, error) {
-	return a.store.AddActor(actor)
+func (a *actor) CreateActor(actor models.CreateActor) (uuid.UUID, error) {
+	return a.store.CreateActor(actor)
 }
 
 // Получение актера по ID
@@ -48,16 +48,6 @@ func (a *actor) GetActor(id uuid.UUID) (*models.Actor, error) {
 	}
 
 	return actor, nil
-}
-
-// Обновление актера по ID
-func (a *actor) UpdateActor(id uuid.UUID, actor models.UpdateActor) error {
-	return a.store.UpdateActor(id, actor)
-}
-
-// Удаление актера
-func (a *actor) DeleteActor(id uuid.UUID) error {
-	return a.store.DeleteActor(id)
 }
 
 // Получение актеров с пагинацией
@@ -142,4 +132,14 @@ func (s *actor) GetActorsWithMovies(limit, offset int) ([]*models.ActorWithMovie
 	}
 
 	return actors, nil
+}
+
+// Обновление актера по ID
+func (a *actor) UpdateActor(id uuid.UUID, actor models.UpdateActor) error {
+	return a.store.UpdateActor(id, actor)
+}
+
+// Удаление актера
+func (a *actor) DeleteActor(id uuid.UUID) error {
+	return a.store.DeleteActor(id)
 }

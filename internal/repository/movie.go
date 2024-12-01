@@ -159,7 +159,7 @@ func (r *movie) RemoveSelectedMovieActorRelations(tx *sql.Tx, movieID uuid.UUID,
 	return nil
 }
 
-func (m *movie) AddMovie(tx *sql.Tx, movie models.CreateMovie) (uuid.UUID, error) {
+func (m *movie) CreateMovie(tx *sql.Tx, movie models.CreateMovie) (uuid.UUID, error) {
 	id := uuid.New()
 	query := sq.
 		Insert("movies").
@@ -170,13 +170,13 @@ func (m *movie) AddMovie(tx *sql.Tx, movie models.CreateMovie) (uuid.UUID, error
 
 	sqlQuery, args, err := query.ToSql()
 	if err != nil {
-		log.Printf("[AddMovie] Error building query for adding movie: %v", err)
+		log.Printf("[CreateMovie] Error building query for adding movie: %v", err)
 		return uuid.Nil, fmt.Errorf("failed to build query: %w", err)
 	}
 
 	err = tx.QueryRow(sqlQuery, args...).Scan(&id)
 	if err != nil {
-		log.Printf("[AddMovie] Error adding movie: %v", err)
+		log.Printf("[CreateMovie] Error adding movie: %v", err)
 		return uuid.Nil, fmt.Errorf("failed to add movie: %w", err)
 	}
 

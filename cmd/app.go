@@ -4,7 +4,6 @@ import (
 	"cinema/internal/controller"
 	"cinema/internal/postgres"
 	"cinema/internal/repository"
-
 	"cinema/internal/routes"
 	"cinema/internal/service"
 	"log"

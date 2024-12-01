@@ -1,0 +1,676 @@
+definitions:
+  models.APIError:
+    properties:
+      code:
+        description: Код ошибки (например, VALIDATION_ERROR, INVALID_JSON, etc.)
+        type: string
+      details:
+        description: Дополнительные данные об ошибке (может быть nil или содержать
+          ValidationError, массив и т.д.)
+      message:
+        description: Общее описание ошибки
+        type: string
+    type: object
+  models.Actor:
+    properties:
+      date_of_birth:
+        type: string
+      gender:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+    type: object
+  models.ActorWithMovies:
+    properties:
+      date_of_birth:
+        type: string
+      gender:
+        type: string
+      id:
+        type: string
+      movies:
+        items:
+          $ref: '#/definitions/models.Movie'
+        type: array
+      name:
+        type: string
+    type: object
+  models.CreateActor:
+    properties:
+      date_of_birth:
+        type: string
+      gender:
+        type: string
+      name:
+        type: string
+    type: object
+  models.CreateMovie:
+    properties:
+      actor_ids:
+        items:
+          type: string
+        type: array
+      description:
+        type: string
+      rating:
+        type: number
+      release_date:
+        type: string
+      title:
+        type: string
+    type: object
+  models.Movie:
+    properties:
+      description:
+        type: string
+      id:
+        type: string
+      rating:
+        type: number
+      release_date:
+        type: string
+      title:
+        type: string
+    type: object
+  models.UpdateActor:
+    properties:
+      date_of_birth:
+        type: string
+      gender:
+        type: string
+      name:
+        type: string
+    type: object
+  models.UpdateMovie:
+    properties:
+      actor_ids:
+        items:
+          type: string
+        type: array
+      description:
+        type: string
+      rating:
+        type: number
+      release_date:
+        type: string
+      title:
+        type: string
+    type: object
+info:
+  contact: {}
+paths:
+  /api/actors:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a list of all actors with optional pagination
+      parameters:
+      - default: 10
+        description: Limit the number of actors returned
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: Offset for pagination
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of actors
+          schema:
+            items:
+              $ref: '#/definitions/models.Actor'
+            type: array
+        "400":
+          description: Invalid pagination parameters
+          schema:
+            $ref: '#/definitions/models.APIError'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/models.APIError'
+      summary: Get all actors with pagination
+      tags:
+      - Actors
+    post:
+      consumes:
+      - application/json
+      description: Create a new actor with the provided data
+      parameters:
+      - description: New actor details
+        in: body
+        name: actor
+        required: true
+        schema:
+          $ref: '#/definitions/models.CreateActor'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: 'Actor ID" example({ "actor_id": "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+            })'
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Invalid request body or validation errors
+          schema:
+            $ref: '#/definitions/models.APIError'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/models.APIError'
+      summary: Create a new actor
+      tags:
+      - Actors
+  /api/actors/{actor_id}/movies:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a list of movies by the actor's ID with optional pagination
+      parameters:
+      - description: Actor ID
+        in: path
+        name: actor_id
+        required: true
+        type: string
+      - description: Limit the number of movies returned
+        in: query
+        name: limit
+        type: integer
+      - description: Offset for pagination
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of movies
+          schema:
+            items:
+              $ref: '#/definitions/models.Movie'
+            type: array
+        "400":
+          description: Invalid actor ID format or bad request
+          schema:
+            $ref: '#/definitions/models.APIError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.APIError'
+      summary: Get movies by actor ID
+      tags:
+      - Movies
+  /api/actors/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete an actor based on their ID
+      parameters:
+      - description: Actor ID
+        example: '"f47ac10b-58cc-4372-a567-0e02b2c3d479"'
+        in: path
+        name: actor_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: Actor successfully deleted
+        "400":
+          description: Invalid actor ID
+          schema:
+            $ref: '#/definitions/models.APIError'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/models.APIError'
+      summary: Delete actor
+      tags:
+      - Actors
+    get:
+      consumes:
+      - application/json
+      description: Retrieve an actor's details by their unique ID
+      parameters:
+      - description: Actor ID
+        example: '"f47ac10b-58cc-4372-a567-0e02b2c3d479"'
+        in: path
+        name: actor_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Actor details
+          schema:
+            $ref: '#/definitions/models.Actor'
+        "400":
+          description: Invalid actor ID
+          schema:
+            $ref: '#/definitions/models.APIError'
+        "404":
+          description: Actor not found
+          schema:
+            $ref: '#/definitions/models.APIError'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/models.APIError'
+      summary: Get actor by ID
+      tags:
+      - Actors
+    put:
+      consumes:
+      - application/json
+      description: Update an actor's details based on their ID
+      parameters:
+      - description: Actor ID
+        example: '"f47ac10b-58cc-4372-a567-0e02b2c3d479"'
+        in: path
+        name: actor_id
+        required: true
+        type: string
+      - description: Updated actor details
+        in: body
+        name: actor
+        required: true
+        schema:
+          $ref: '#/definitions/models.UpdateActor'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: Actor successfully updated
+        "400":
+          description: Invalid request body or parameters
+          schema:
+            $ref: '#/definitions/models.APIError'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/models.APIError'
+      summary: Update actor details
+      tags:
+      - Actors
+  /api/actors/with-movies:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a list of actors with the movies they have appeared in
+      parameters:
+      - default: 10
+        description: Limit the number of actors returned
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: Offset for pagination
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of actors with movies
+          schema:
+            items:
+              $ref: '#/definitions/models.ActorWithMovies'
+            type: array
+        "400":
+          description: Invalid pagination parameters
+          schema:
+            $ref: '#/definitions/models.APIError'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/models.APIError'
+      summary: Get actors with their movies
+      tags:
+      - Actors
+  /api/movies:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a list of movies with optional filters for sorting and
+        pagination.
+      parameters:
+      - default: rating
+        description: Field to sort by
+        enum:
+        - title
+        - release_date
+        - rating
+        in: query
+        name: sortBy
+        type: string
+      - default: DESC
+        description: Sorting order
+        enum:
+        - ASC
+        - DESC
+        in: query
+        name: order
+        type: string
+      - default: 10
+        description: Limit the number of movies returned
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: Offset for pagination
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of filtered movies
+          schema:
+            items:
+              $ref: '#/definitions/models.Movie'
+            type: array
+        "400":
+          description: Invalid request parameters
+          schema:
+            $ref: '#/definitions/models.APIError'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/models.APIError'
+      summary: Get movies with filters
+      tags:
+      - Movies
+    post:
+      consumes:
+      - application/json
+      description: Adds a new movie to the database
+      parameters:
+      - description: Movie details
+        in: body
+        name: movie
+        required: true
+        schema:
+          $ref: '#/definitions/models.CreateMovie'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: 'Movie created successfully"  example={"id": "1234"}'
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Invalid JSON format or validation errors
+          schema:
+            $ref: '#/definitions/models.APIError'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/models.APIError'
+      summary: Create a new movie
+      tags:
+      - Movies
+  /api/movies/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a movie by its ID
+      parameters:
+      - description: Movie ID
+        example: '"f47ac10b-58cc-4372-a567-0e02b2c3d479"'
+        in: path
+        name: movie_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: Movie successfully deleted
+        "400":
+          description: Invalid movie ID
+          schema:
+            $ref: '#/definitions/models.APIError'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/models.APIError'
+      summary: Delete movie
+      tags:
+      - Movies
+    get:
+      consumes:
+      - application/json
+      description: Retrieves a movie by its unique identifier
+      parameters:
+      - description: Movie ID
+        example: '"f47ac10b-58cc-4372-a567-0e02b2c3d479"'
+        in: path
+        name: movie_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: The movie details
+          schema:
+            $ref: '#/definitions/models.Movie'
+        "400":
+          description: Invalid movie ID format
+          schema:
+            $ref: '#/definitions/models.APIError'
+        "404":
+          description: Movie not found
+          schema:
+            $ref: '#/definitions/models.APIError'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/models.APIError'
+      summary: Get movie by ID
+      tags:
+      - Movies
+    put:
+      consumes:
+      - application/json
+      description: Update the details of a movie based on its ID
+      parameters:
+      - description: Movie ID
+        example: '"f47ac10b-58cc-4372-a567-0e02b2c3d479"'
+        in: path
+        name: movie_id
+        required: true
+        type: string
+      - description: Updated movie details
+        in: body
+        name: movie
+        required: true
+        schema:
+          $ref: '#/definitions/models.UpdateMovie'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: Movie successfully updated
+        "400":
+          description: Invalid request body or parameters
+          schema:
+            $ref: '#/definitions/models.APIError'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/models.APIError'
+      summary: Update movie details
+      tags:
+      - Movies
+  /api/movies/{movie_id}/actors:
+    delete:
+      consumes:
+      - application/json
+      description: Remove a list of actors from a movie by movie ID
+      parameters:
+      - description: ID of the movie
+        in: path
+        name: movie_id
+        required: true
+        type: string
+      - description: List of actor IDs to be removed from the movie
+        in: body
+        name: actor_ids
+        required: true
+        schema:
+          items:
+            type: string
+          type: array
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+          schema:
+            type: string
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/models.APIError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.APIError'
+      summary: Remove actors from a movie
+      tags:
+      - movie-actors
+    post:
+      consumes:
+      - application/json
+      description: Add a list of actors to a movie by movie ID
+      parameters:
+      - description: ID of the movie
+        in: path
+        name: movie_id
+        required: true
+        type: string
+      - description: List of actor IDs to be added to the movie
+        in: body
+        name: actor_ids
+        required: true
+        schema:
+          items:
+            type: string
+          type: array
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+          schema:
+            type: string
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/models.APIError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.APIError'
+      summary: Add actors to a movie
+      tags:
+      - movie-actors
+    put:
+      consumes:
+      - application/json
+      description: Update the list of actors for a movie by movie ID
+      parameters:
+      - description: ID of the movie
+        in: path
+        name: movie_id
+        required: true
+        type: string
+      - description: List of actor IDs to be updated for the movie
+        in: body
+        name: actor_ids
+        required: true
+        schema:
+          items:
+            type: string
+          type: array
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+          schema:
+            type: string
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/models.APIError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.APIError'
+      summary: Update actors for a movie
+      tags:
+      - movie-actors
+  /api/movies/search:
+    get:
+      consumes:
+      - application/json
+      description: Search for movies by a partial title and actor's name with optional
+        pagination.
+      parameters:
+      - description: Movie title fragment
+        example: '"Inception"'
+        in: query
+        name: title
+        type: string
+      - description: Actor name fragment
+        example: '"Leonardo"'
+        in: query
+        name: actor_name
+        type: string
+      - default: 10
+        description: Limit the number of movies returned
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: Offset for pagination
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of movies matching the search
+          schema:
+            items:
+              $ref: '#/definitions/models.Movie'
+            type: array
+        "400":
+          description: Invalid search parameters
+          schema:
+            $ref: '#/definitions/models.APIError'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/models.APIError'
+      summary: Search movies by title and actor name
+      tags:
+      - Movies
+swagger: "2.0"

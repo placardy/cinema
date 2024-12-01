@@ -21,7 +21,7 @@ func NewActor(db *sql.DB) *actor {
 }
 
 // Добавить актера
-func (a *actor) AddActor(actor models.CreateActor) (uuid.UUID, error) {
+func (a *actor) CreateActor(actor models.CreateActor) (uuid.UUID, error) {
 	id := uuid.New()
 	query := sq.
 		Insert("actors").
@@ -32,13 +32,13 @@ func (a *actor) AddActor(actor models.CreateActor) (uuid.UUID, error) {
 
 	sqlQuery, args, err := query.ToSql()
 	if err != nil {
-		log.Printf("[AddActor] Error building query: %v", err)
+		log.Printf("[CreateActor] Error building query: %v", err)
 		return uuid.Nil, fmt.Errorf("failed to build query: %w", err)
 	}
 
 	err = a.db.QueryRow(sqlQuery, args...).Scan(&id)
 	if err != nil {
-		log.Printf("[AddActor] Error executing query: %v", err)
+		log.Printf("[CreateActor] Error executing query: %v", err)
 		return uuid.Nil, fmt.Errorf("failed to add actor: %w", err)
 	}
 	return id, nil
